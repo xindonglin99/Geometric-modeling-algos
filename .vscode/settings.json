@@ -1,0 +1,130 @@
+{
+    //
+    // Editor options
+    //
+    "editor": {
+        "fontSize": 19,
+        "tabSize": 2,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "quickSuggestions": false,
+        "autoClosingBrackets": false,
+        "renderIndentGuides": false,
+    },
+    //
+    // Files to ignore
+    //
+    "files.exclude": {
+      "**/*~": true,
+      "**/#*": true,
+      "build-dbg": true,
+      "build-opt": true,
+      "third-party.zip":true,
+      "third-party": true,
+      "debugger": true,
+      "webpage": true,
+      "mesh": true,
+    },
+    //
+    // IF USING CMAKE
+    //
+    "cmake": {
+        "buildDirectory": "${workspaceRoot}/build-dbg",
+        "parallelJobs": 6,
+        "useCMakeServer": false,
+        "sourceDirectory": "${workspaceRoot}"
+    },
+    //
+    // Open files with double click rather than one click
+    //
+    "workbench.list.openMode": "doubleClick",
+    //
+    // Some clang-format stuff
+    //
+    "clang-format.executable": "/usr/bin/clang-format-6.0",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    //
+    //  Don't parse the code all the time
+    //  so that vscode does not freez often.
+    //
+    "C_Cpp.workspaceParsingPriority": "high",
+    //
+    // Use solarized color theme!
+    //
+    "workbench.colorTheme": "Solarized Dark",
+    //
+    //
+    //
+    "files.associations": {
+      "armadillo": "cpp",
+      "*.ipp": "cpp",
+      "cctype": "cpp",
+      "clocale": "cpp",
+      "cmath": "cpp",
+      "csignal": "cpp",
+      "cstdarg": "cpp",
+      "cstddef": "cpp",
+      "cstdio": "cpp",
+      "cstdlib": "cpp",
+      "cstring": "cpp",
+      "ctime": "cpp",
+      "cwchar": "cpp",
+      "cwctype": "cpp",
+      "array": "cpp",
+      "atomic": "cpp",
+      "*.tcc": "cpp",
+      "chrono": "cpp",
+      "codecvt": "cpp",
+      "condition_variable": "cpp",
+      "cstdint": "cpp",
+      "exception": "cpp",
+      "slist": "cpp",
+      "functional": "cpp",
+      "initializer_list": "cpp",
+      "iosfwd": "cpp",
+      "limits": "cpp",
+      "memory": "cpp",
+      "mutex": "cpp",
+      "new": "cpp",
+      "ratio": "cpp",
+      "stdexcept": "cpp",
+      "system_error": "cpp",
+      "thread": "cpp",
+      "tuple": "cpp",
+      "type_traits": "cpp",
+      "typeinfo": "cpp",
+      "utility": "cpp",
+      "par_msquares.h": "c",
+      "iostream": "cpp",
+      "strstream": "cpp",
+      "cinttypes": "cpp",
+      "typeindex": "cpp",
+      "future": "cpp",
+      "unordered_map": "cpp",
+      "fstream": "cpp",
+      "istream": "cpp",
+      "optional": "cpp",
+      "ostream": "cpp",
+      "vector": "cpp",
+      "sstream": "cpp",
+      "streambuf": "cpp",
+      "string_view": "cpp",
+      "complex": "cpp",
+      "deque": "cpp",
+      "core": "cpp",
+      "geometry": "cpp",
+      "bitset": "cpp",
+      "list": "cpp",
+      "unordered_set": "cpp",
+      "algorithm": "cpp",
+      "iterator": "cpp",
+      "map": "cpp",
+      "memory_resource": "cpp",
+      "numeric": "cpp",
+      "set": "cpp",
+      "string": "cpp",
+      "iomanip": "cpp",
+      "cfenv": "cpp"
+    },
+}

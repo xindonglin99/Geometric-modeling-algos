@@ -1,0 +1,93 @@
+==================== ON CS LINUX MACHINES (BASH) ====================
+
+======= RELEASE
+
+Running cmake withing build-opt:
+
+cmake ..                                                          \
+-DCMAKE_BUILD_TYPE=relwithdebinfo                                          \
+-DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
+-DFREEGLUT_DIR=${PWD}/../third-party/freeglut/bin-opensuse-gcc731/release \
+-DGLUI_DIR=${PWD}/../third-party/glui/bin-opensuse-gcc731/release 
+
+Build the code:
+  make -j
+  
+======= DEBUG
+
+Running cmake withing build-dbg:
+
+cmake ..                                                          \
+-DCMAKE_BUILD_TYPE=debug                                                   \
+-DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
+-DFREEGLUT_DIR=${PWD}/../third-party/freeglut/bin-opensuse-gcc731/debug   \
+-DGLUI_DIR=${PWD}/../third-party/glui/bin-opensuse-gcc731/debug 
+
+Build the code:
+  make -j
+
+==================== ON MACOSX (BASH) ====================
+
+======= RELEASE
+
+Running cmake withing build-opt:
+
+cmake ..                                                          \
+-DCMAKE_BUILD_TYPE=relwithdebinfo                                          \
+-DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
+-DGLUI_DIR=/usr/local/Cellar/glui/2.37/
+
+Build the code:
+  make -j
+  
+======= DEBUG
+
+Running cmake withing build-dbg:
+
+cmake ..                                                          \
+-DCMAKE_BUILD_TYPE=debug                                                   \
+-DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
+-DGLUI_DIR=/usr/local/Cellar/glui/2.37/ 
+
+Build the code:
+  make -j
+
+======================== ON WINDOWS (CMD) ===========================
+
+======= RELEASE
+
+Running cmake withing build-opt:
+
+cmake ..                                                         ^
+-DCMAKE_BUILD_TYPE=relwithdebinfo                                          ^
+-G"Visual Studio 15 2017 Win64"                                            ^
+-DFREEGLUT_DIR=%cd%"/../third-party/freeglut/bin-win64-msvc2017/release"  ^
+-DGLUI_DIR=%cd%"/../third-party/glui/bin-win64-msvc2017/release"          ^
+-DEIGEN3_DIR=%cd%"/../third-party/eigen"
+
+Build the code from command line:
+
+  cmake --build . --config relwithdebinfo 
+
+Copy the DLLS (run only once, and after building) from command line:
+
+  cmake --build . --config relwithdebinfo --target COPY_DLLS
+
+======= DEBUG
+
+Running cmake withing build-dbg:
+
+cmake ..                                                       ^
+-DCMAKE_BUILD_TYPE=debug                                                 ^
+-G"Visual Studio 15 2017 Win64"                                          ^
+-DFREEGLUT_DIR=%cd%"/../third-party/freeglut/bin-win64-msvc2017/debug"  ^
+-DGLUI_DIR=%cd%"/../third-party/glui/bin-win64-msvc2017/debug"          ^
+-DEIGEN3_DIR=%cd%"/../third-party/eigen"  
+
+Build the code from command line:
+
+  cmake --build . --config debug 
+
+Copy the DLLS (run only once, and after building) from command line:
+
+  cmake --build . --config debug --target COPY_DLLS
