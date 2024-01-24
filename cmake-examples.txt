@@ -35,7 +35,7 @@ Running cmake withing build-opt:
 cmake ..                                                          \
 -DCMAKE_BUILD_TYPE=relwithdebinfo                                          \
 -DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
--DGLUI_DIR=/usr/local/Cellar/glui/2.37/
+-DGLUI_DIR=/usr/local/Cellar/glui/2.37_1
 
 Build the code:
   make -j
@@ -47,7 +47,7 @@ Running cmake withing build-dbg:
 cmake ..                                                          \
 -DCMAKE_BUILD_TYPE=debug                                                   \
 -DEIGEN3_DIR=${PWD}/../third-party/eigen                                  \
--DGLUI_DIR=/usr/local/Cellar/glui/2.37/ 
+-DGLUI_DIR=/usr/local/Cellar/glui/2.37_1 
 
 Build the code:
   make -j
