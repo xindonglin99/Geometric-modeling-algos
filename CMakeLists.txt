@@ -27,7 +27,7 @@ minimesh_set_policy_to_new(CMP0074) #FindPackage uses ..._ROOT
 ##  library XXX.
 ##
 # Eigen -- turn of eigen vectorization for starters
-find_package(EIGEN3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 add_definitions("-DEIGEN_MAX_ALIGN_BYTES=0") 
 add_definitions("-DEIGEN_DONT_VECTORIZE")
 #

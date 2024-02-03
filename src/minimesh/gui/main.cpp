@@ -151,6 +151,9 @@ void mouse_moved(int x, int y)
 void subdivide_pressed(int)
 {
 	printf("Subdivide button was pressed \n");
+
+    globalvars::modi.subdivide();
+
 }
 
 

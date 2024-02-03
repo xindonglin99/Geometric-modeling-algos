@@ -11,6 +11,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 
 namespace minimesh
@@ -46,8 +47,10 @@ public:
 	//
 	bool flip_edge(const int he_index);
 
-  // Subdivide a closed manifold mesh using Loop scheme
-  void subdivide();
+    // Subdivide a closed manifold mesh using Loop scheme
+    void subdivide();
+
+    typedef std::map<std::pair<int, int>, int> Edge_map;
 
 private:
 	// pointer to the mesh that we are working on.
@@ -55,6 +58,12 @@ private:
   
   // Compute coefficient for even vertices
   static float compute_old_coeff(const int n);
+  void build_triangle(
+          Mesh_connectivity::Vertex_iterator & v0,
+          Mesh_connectivity::Vertex_iterator & v1,
+          Mesh_connectivity::Vertex_iterator & v2,
+          Mesh_connectivity & mesh,
+          Edge_map & edge_map);
 };
 
 

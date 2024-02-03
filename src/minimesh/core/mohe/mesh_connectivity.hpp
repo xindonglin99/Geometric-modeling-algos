@@ -435,7 +435,7 @@ public:
 	//
 	// Input:
 	//
-	//   xyz, position of the points in this order x0 y0 z0 x1 y1 x1 ... xn yn zn
+	//   xyz, position of the points in this order x0 y0 z0 x1 y1 z1 ... xn yn zn
 	//   such that number of points is xyz.size() / 3 .
 	//
 	//   triangles_vertices, list of vertex number belonging to triangles in the
