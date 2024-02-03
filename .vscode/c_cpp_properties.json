@@ -1,43 +1,44 @@
 {
-  "configurations": [
-    {
-      "name": "Windows",
-      "browse": {
-        "path": [
-          "${workspaceFolder}"
-          ],
-        "limitSymbolsToIncludedHeaders": true
-      },
-      "includePath": [
-        "${workspaceFolder}",
-        "D:/Libraries/glui/debug/include",
-        "D:/Libraries/eigen/default"
-      ],
-      "defines": ["WIN32", "_WIN32", "_MSC_VER"],
-      "cStandard": "c11",
-      "cppStandard": "c++14",
-      "intelliSenseMode": "clang-x64"
-    },
-    {
-      "name": "Linux",
-      "browse": {
-        "path": [
-          "${workspaceFolder}"
-        ],
-        "limitSymbolsToIncludedHeaders": true
-      },
-      "includePath": [
-        "${workspaceFolder}/src",
-        "${workspaceFolder}/extras/src",
-        "/usr/include",
-        "/home/hooshi/code/glui/2.36/debug/include",
-        "${HOME}/code/eigen/default"
-      ],
-      "defines": [],
-      "cStandard": "c11",
-      "cppStandard": "c++14",
-      "intelliSenseMode": "clang-x64"
-    }
-  ],
-  "version": 4
+    "configurations": [
+        {
+            "name": "Windows",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "${workspaceFolder}",
+                "D:/Libraries/glui/debug/include",
+                "D:/Libraries/eigen/default"
+            ],
+            "defines": [
+                "WIN32",
+                "_WIN32",
+                "_MSC_VER"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64"
+        },
+        {
+            "name": "Linux",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third-party/eigen"
+            ],
+            "defines": [],
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
 }

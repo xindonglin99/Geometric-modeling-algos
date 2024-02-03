@@ -10,7 +10,7 @@
 
 
 #include <string>
-
+#include <vector>
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 
 namespace minimesh
@@ -46,10 +46,15 @@ public:
 	//
 	bool flip_edge(const int he_index);
 
+  // Subdivide a closed manifold mesh using Loop scheme
+  void subdivide();
 
 private:
 	// pointer to the mesh that we are working on.
 	Mesh_connectivity & _m;
+  
+  // Compute coefficient for even vertices
+  static float compute_old_coeff(const int n);
 };
 
 

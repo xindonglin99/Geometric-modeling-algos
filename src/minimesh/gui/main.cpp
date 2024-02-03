@@ -11,6 +11,7 @@
 // core
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 #include <minimesh/core/mohe/mesh_io.hpp>
+#include <minimesh/core/mohe/mesh_modifier.hpp>
 #include <minimesh/core/util/assert.hpp>
 #include <minimesh/core/util/foldertools.hpp>
 #include <minimesh/core/util/numbers.hpp>
@@ -29,6 +30,7 @@ namespace globalvars
 {
 Mesh_viewer viewer;
 mohe::Mesh_connectivity mesh;
+mohe::Mesh_modifier modi(mesh);
 //
 int glut_main_window_id;
 //
@@ -190,8 +192,8 @@ int main(int argc, char * argv[])
 	// Change the hardcoded address to your needs.
 	if(argc == 1)
 	{
-		foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524-modeling/mesh");
-		mohe::Mesh_io(globalvars::mesh).read_auto("camel.obj");
+		foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524-modeling/inputs/closed");
+		mohe::Mesh_io(globalvars::mesh).read_auto("cube.obj");
 	}
 	else // otherwise use the address specified in the command line
 	{

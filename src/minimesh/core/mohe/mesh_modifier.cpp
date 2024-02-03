@@ -115,6 +115,76 @@ bool Mesh_modifier::flip_edge(const int he_index)
 	return true;
 } // All done
 
+// borrowed from https://github.com/icemiliang/loop_subdivision
+float Mesh_modifier::compute_old_coeff(const int n)
+{
+  float beta;
+	if (n > 3){
+		float center = (0.375f + (0.25f * cos(6.2831853f / (float)n))); // 2.0f * 3.1415926f
+		beta = (0.625f - (center * center)) / (float)n;
+	}
+	else {
+		beta = 0.1875f; // 3.0f / 16.0f;
+	}
+	return beta;
+}
+
+void Mesh_modifier::subdivide() 
+{
+  Mesh_connectivity newMesh;
+
+  // Loop through each vertex, compute its new position according to its neighbours
+  for (int i=0; i < mesh().n_active_vertices(); i++) 
+  {
+    Mesh_connectivity::Vertex_iterator vNew = newMesh.add_vertex(false);
+    Mesh_connectivity::Vertex_ring_iterator curr = mesh().vertex_ring_at(i);
+    const Mesh_connectivity::Half_edge_iterator firstEdge = curr.half_edge();
+    std::vector<Mesh_connectivity::Vertex_iterator> neighbours;
+    int k = 0;
+    do 
+    {
+      neighbours.push_back(curr.half_edge().origin());
+      curr.advance();
+      k++;
+    } while (!curr.half_edge().is_equal(firstEdge));
+    float beta = compute_old_coeff(k);
+    vNew.data().xyz = curr.half_edge().dest().xyz() * (1.0f - (float(k) * beta));
+    for (int j = 0; j < k; j++)
+    {
+        vNew.data().xyz += (neighbours[j].data().xyz * beta);
+    }
+  }
+
+  // Loop through all edges, compute new vertex
+  for (int i=0; i < mesh().n_total_half_edges(); i++)
+  {
+      Mesh_connectivity::Half_edge_iterator curr_edge = mesh().half_edge_at(i);
+      if (curr_edge.is_active())
+      {
+          Mesh_connectivity::Vertex_iterator vNew = newMesh.add_vertex(false);
+          vNew.data().xyz = (curr_edge.origin().xyz() + curr_edge.dest().xyz()) * (3.0f / 8.0f);
+          vNew.data().xyz += (curr_edge.next().dest().xyz() + curr_edge.twin().next().dest().xyz()) * (1.0f / 8.0f);
+          curr_edge.twin().deactivate();
+      }
+  }
+
+  // Add new faces and half edges
+  for (int i=0; i < mesh().n_total_faces(); i++)
+  {
+      Mesh_connectivity::Half_edge_iterator he0 = mesh().face_at(i).half_edge();
+      Mesh_connectivity::Half_edge_iterator he1 = he0.next();
+      Mesh_connectivity::Half_edge_iterator he2 = he1.next();
+
+      Mesh_connectivity::Vertex_iterator v0 = he0.origin();
+      Mesh_connectivity::Vertex_iterator v1 = he1.origin();
+      Mesh_connectivity::Vertex_iterator v2 = he2.origin();
+
+      Mesh_connectivity::Vertex_iterator v0_new = mesh().vertex_at();
+      Mesh_connectivity::Vertex_iterator v1_new = he1.origin();
+      Mesh_connectivity::Vertex_iterator v2_new = he2.origin();
+  }
+}
+
 
 } // end of mohe
 } // end of minimesh

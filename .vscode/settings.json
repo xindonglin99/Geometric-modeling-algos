@@ -20,7 +20,6 @@
       "build-dbg": true,
       "build-opt": true,
       "third-party.zip":true,
-      "third-party": true,
       "debugger": true,
       "webpage": true,
       "mesh": true,
@@ -52,7 +51,7 @@
     //
     // Use solarized color theme!
     //
-    "workbench.colorTheme": "Solarized Dark",
+    "workbench.colorTheme": "Visual Studio 2017 Dark - C++",
     //
     //
     //
@@ -132,4 +131,9 @@
     "editor.autoSurround": "never",
     "editor.guides.indentation": false,
     "editor.fontSize": 12,
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    },
 }

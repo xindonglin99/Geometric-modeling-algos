@@ -113,7 +113,7 @@ public:
 
 		// Please do not create this class yourself.
 		// Use Surface_mesh_connectivity::add_half_edge()
-		// And then access data via Face_iterator::data()
+		// And then access data via Half_edge_iterator::data()
 		Half_edge_data() = default;
 		friend class Mesh_connectivity;
 	};
