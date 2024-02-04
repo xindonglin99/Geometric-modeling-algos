@@ -153,7 +153,9 @@ void subdivide_pressed(int)
 	printf("Subdivide button was pressed \n");
 
     globalvars::modi.subdivide();
-
+    mohe::Mesh_connectivity::Defragmentation_maps defrag;
+    globalvars::mesh.compute_defragmention_maps(defrag);
+    globalvars::viewer.get_mesh_buffer().rebuild(globalvars::mesh, defrag);
 }
 
 
