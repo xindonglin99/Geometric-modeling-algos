@@ -198,7 +198,7 @@ int main(int argc, char * argv[])
 	if(argc == 1)
 	{
 		foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524-modeling/inputs/closed");
-		mohe::Mesh_io(globalvars::mesh).read_auto("cube.obj");
+		mohe::Mesh_io(globalvars::mesh).read_auto("camel_mc.off");
 	}
 	else // otherwise use the address specified in the command line
 	{

@@ -137,7 +137,6 @@ void Mesh_modifier::subdivide()
   std::vector<int> triangles;
   coords.reserve(3 * mesh().n_total_vertices() + int(3 * mesh().n_total_half_edges() / 2));
   triangles.reserve(4 * mesh().n_total_faces());
-  int total_vert = mesh().n_total_vertices();
 
   // Loop through each vertex, compute its new position according to its neighbours
   for (int i=0; i < mesh().n_total_vertices(); i++)
