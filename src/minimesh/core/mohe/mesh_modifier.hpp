@@ -8,56 +8,78 @@
 // Author: Shayan Hoshyari
 //
 
-
-#include <string>
-#include <vector>
-#include <map>
+#include <Eigen/core>
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
+#include <queue>
 
-namespace minimesh
-{
-namespace mohe
-{
+namespace minimesh {
+    namespace mohe {
+        class Mesh_modifier {
+        public:
+            // Trivial constructor
+            explicit Mesh_modifier(Mesh_connectivity &mesh_in);
 
+            // Get the underlying mesh
+            Mesh_connectivity &mesh() { return _m; }
+            const Mesh_connectivity &mesh() const { return _m; }
 
-class Mesh_modifier
-{
-public:
-	// Trivial constructor
-	Mesh_modifier(Mesh_connectivity & mesh_in): _m(mesh_in) {}
+            //
+            // Given two vertices, this function return the index of the half-edge going from v0 to v1.
+            // Returns mesh::invalid_index if no half-edge exists between the two vertices.
+            //
+            int get_halfedge_between_vertices(const int v0, const int v1);
 
-	// Get the underlying mesh
-	Mesh_connectivity & mesh() { return _m; }
-	const Mesh_connectivity & mesh() const { return _m; }
+            //
+            // Flip an edge in a mesh
+            // Input: The mesh, and the index of a half-edge on the edge we wish to flip
+            // Return true if operation successful, and false if operation not possible
+            //
+            // Assumption: mesh is all triangles
+            //
+            // NOTE: To see how this method works, take a look at edge-flip.svg
+            //
+            bool flip_edge(const int he_index);
 
-	//
-	// Given two vertices, this function return the index of the half-edge going from v0 to v1.
-	// Returns mesh::invalid_index if no half-edge exists between the two vertices.
-	//
-	int get_halfedge_between_vertices(const int v0, const int v1);
+            // Subdivide a closed manifold mesh using Loop scheme
+            void subdivide();
 
-	//
-	// Flip an edge in a mesh
-	// Input: The mesh, and the index of a half-edge on the edge we wish to flip
-	// Return true if operation successful, and false if operation not possible
-	//
-	// Assumption: mesh is all triangles
-	//
-	// NOTE: To see how this method works, take a look at edge-flip.svg
-	//
-	bool flip_edge(const int he_index);
+            // Simplify by k edges
+            void simplify(int k);
 
-    // Subdivide a closed manifold mesh using Loop scheme
-    void subdivide();
+            // Initialize simplify Quadrics
+            void quadrics();
 
-private:
-	// pointer to the mesh that we are working on.
-	Mesh_connectivity & _m;
+        private:
+            // pointer to the mesh that we are working on.
+            Mesh_connectivity &_m;
 
-    // Compute coefficient for even vertices
-    static float compute_old_coeff(int n);
-};
+            struct edge_distance {
+                Mesh_connectivity::Half_edge_iterator he;
+                double delta;
+            };
 
+            struct cmp {
+                bool operator()(const edge_distance &e1, const edge_distance &e2) { return e1.delta > e2.delta; }
+            };
 
-} // end of mohe
+            std::priority_queue<edge_distance, std::vector<edge_distance>, cmp> errors;
+
+            std::vector<Eigen::Matrix4d> Qs;
+
+            // Compute coefficient for even vertices
+            static float compute_old_coeff(int n);
+
+            // Initialize the Quadrics for all vertices
+            void initialize_Qs();
+
+            // Compute the errors for all the valid pairs, i.e. edges
+            void compute_errors();
+
+            // Update the Quadrics for the affected vertices
+            void update_Qs();
+
+            // Check if the new geometry is valid
+            void check_validity();
+        };
+    } // end of mohe
 } // end of minimesh
