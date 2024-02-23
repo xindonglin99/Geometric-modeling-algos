@@ -53,16 +53,16 @@ namespace minimesh {
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
 
-            struct edge_distance {
+            struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;
                 double delta;
             };
 
             struct cmp {
-                bool operator()(const edge_distance &e1, const edge_distance &e2) { return e1.delta > e2.delta; }
+                bool operator()(const Edge_distance &e1, const Edge_distance &e2) { return e1.delta > e2.delta; }
             };
 
-            std::priority_queue<edge_distance, std::vector<edge_distance>, cmp> errors;
+            std::priority_queue<Edge_distance, std::vector<Edge_distance>, cmp> errors;
 
             std::vector<Eigen::Matrix4d> Qs;
 
@@ -79,7 +79,7 @@ namespace minimesh {
             void update_Qs();
 
             // Check if the new geometry is valid
-            void check_validity();
+            bool check_validity(Mesh_connectivity::Half_edge_iterator he);
         };
     } // end of mohe
 } // end of minimesh

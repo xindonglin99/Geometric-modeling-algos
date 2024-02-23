@@ -208,7 +208,7 @@ namespace minimesh {
                     }
                     // Calculate and push the error into the heap
                     const double error = v.transpose() * Q_hat * v;
-                    edge_distance edge_distance{mesh().half_edge_at(i), error};
+                    Edge_distance edge_distance{mesh().half_edge_at(i), error};
 
                     this->errors.push(edge_distance);
                 }
@@ -220,9 +220,24 @@ namespace minimesh {
             //Stub
         }
 
+        bool
+        Mesh_modifier::check_validity(Mesh_connectivity::Half_edge_iterator he) {
+            return true;
+        }
+
         void
-        Mesh_modifier::check_validity() {
-            //Stub
+        Mesh_modifier::simplify(int k) {
+            while (k > 0) {
+                Edge_distance to_pop = this->errors.top();
+                if (check_validity(to_pop.he)) {
+                    this->errors.pop();
+                    to_pop.he.deactivate();
+                    this->update_Qs();
+                } else {
+                    // TODO: Need to do some error handling
+                }
+                k--;
+            }
         }
 
         void
@@ -314,10 +329,6 @@ namespace minimesh {
 
             mesh().clear();
             mesh().build_from_triangles(coords, triangles);
-        }
-
-        void
-        Mesh_modifier::simplify(int k) {
         }
     } // end of mohe
 } // end of minimesh
