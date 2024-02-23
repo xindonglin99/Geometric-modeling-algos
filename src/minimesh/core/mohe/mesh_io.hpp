@@ -12,20 +12,17 @@
 
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 
-namespace minimesh
-{
-namespace mohe
-{
+namespace minimesh {
+namespace mohe {
 
-class Mesh_io
-{
-public:
+class Mesh_io {
+ public:
   // Trivial constructor
-  Mesh_io(Mesh_connectivity & mesh_in);
+  Mesh_io(Mesh_connectivity &mesh_in);
 
   // Get the underlying mesh
-  Mesh_connectivity & grid() { return _m; }
-  const Mesh_connectivity & grid() const { return _m; }
+  Mesh_connectivity &grid() { return _m; }
+  const Mesh_connectivity &grid() const { return _m; }
 
   //
   // Functions to read a mesh.
@@ -40,7 +37,6 @@ public:
 
   // Read the off format
   void read_off(const std::string &);
-
 
   //
   // Functions to write a OBJ mesh
@@ -92,25 +88,23 @@ public:
   //   is_vector, is this data a vector or a scalar field.
   //   if is_vector=true, we must have data.size() == (num_active_vertices or faces)*3
   //   if is_vector=false, we must have data.size() == (num_active_vertices or faces)
-  void write_vtk_data(FILE * fl, std::vector<int> & data, const std::string name, const bool is_vector = false);
-  void write_vtk_data(FILE * fl, std::vector<double> & data, const std::string name, const bool is_vector = false);
+  void write_vtk_data(FILE *fl, std::vector<int> &data, const std::string name, const bool is_vector = false);
+  void write_vtk_data(FILE *fl, std::vector<double> &data, const std::string name, const bool is_vector = false);
 
   //
   // Print mesh connectivity for debugging
   //
-  void print_info(FILE * fl = stdout);
+  void print_info(FILE *fl = stdout);
 
-private:
+ private:
   // Open a file, generate error if file is not found.
-  static FILE * open_file(const std::string & fname, const std::string & format, const std::string & mode);
+  static FILE *open_file(const std::string &fname, const std::string &format, const std::string &mode);
 
   // pointer to the mesh that we are working on.
-  Mesh_connectivity & _m;
-
+  Mesh_connectivity &_m;
 
   // These are only used for writing a .vtk file
-  enum
-  {
+  enum {
     VTK_MODE_CELL = 0,
     VTK_MODE_VERTEX = 1
   };
@@ -118,7 +112,6 @@ private:
   bool _vtk_have_written_vert_data_header;
   int _vtk_writing_mode;
 };
-
 
 } // end of mohe
 } // end of minimesh

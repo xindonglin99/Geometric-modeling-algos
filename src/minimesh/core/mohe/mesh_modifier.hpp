@@ -46,20 +46,23 @@ namespace minimesh {
             // Simplify by k edges
             void simplify(int k);
 
+
             // Initialize simplify Quadrics
             void quadrics();
+
+            std::vector<int> get_top_k_errors_edge_vertices(int k);
 
         private:
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
 
             struct Edge_distance {
-                Mesh_connectivity::Half_edge_iterator he;
-                double delta;
+              Mesh_connectivity::Half_edge_iterator he;
+              double delta;
             };
 
             struct cmp {
-                bool operator()(const Edge_distance &e1, const Edge_distance &e2) { return e1.delta > e2.delta; }
+              bool operator()(const Edge_distance &e1, const Edge_distance &e2) { return e1.delta > e2.delta; }
             };
 
             std::priority_queue<Edge_distance, std::vector<Edge_distance>, cmp> errors;
