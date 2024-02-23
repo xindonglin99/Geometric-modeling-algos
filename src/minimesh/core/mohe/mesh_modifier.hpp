@@ -82,7 +82,10 @@ namespace minimesh {
             void update_Qs();
 
             // Check if the new geometry is valid
-            bool check_validity(Mesh_connectivity::Half_edge_iterator he);
+            bool check_validity(Mesh_connectivity::Half_edge_iterator he);\
+
+            // Connect the new vertex to its neighbours
+            void connect_with_neighbours();
         };
     } // end of mohe
 } // end of minimesh

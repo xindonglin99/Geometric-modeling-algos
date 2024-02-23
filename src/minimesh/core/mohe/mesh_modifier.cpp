@@ -140,7 +140,6 @@ Mesh_modifier::initialize_Qs() {
     Eigen::Matrix4d Q;
     Q.setZero();
     Mesh_connectivity::Vertex_ring_iterator curr = mesh().vertex_ring_at(i);
-    const Mesh_connectivity::Half_edge_iterator first_he = curr.half_edge();
     do {
       Mesh_connectivity::Vertex_iterator a = curr.half_edge().origin();
       Mesh_connectivity::Vertex_iterator b = curr.half_edge().dest();
@@ -157,9 +156,7 @@ Mesh_modifier::initialize_Qs() {
       Eigen::Matrix4d tmpQ = target * target.transpose();
 
       Q += tmpQ;
-
-      curr.advance();
-    } while (!curr.half_edge().is_equal(first_he));
+    } while (curr.advance());
 
     this->Qs.push_back(Q);
   }
@@ -167,7 +164,7 @@ Mesh_modifier::initialize_Qs() {
 
 void
 Mesh_modifier::compute_errors() {
-  // Keep a O(1) HashSet for visited half-edges' twins
+  // Keep a O(1) HashSet for visited half-edge's twins
   std::unordered_set<int> visited;
 
   for (int i = 0; i < mesh().n_active_half_edges(); ++i) {
@@ -194,7 +191,7 @@ Mesh_modifier::compute_errors() {
       Eigen::FullPivLU<Eigen::Matrix4d> lu(Q_hat_d);
       Eigen::Vector4d v;
 
-      // If invertible, use PLU to solve, faster, else use mid point
+      // If invertible, use PLU to solve, faster, else use mid-point
       if (lu.isInvertible()) {
         Eigen::PartialPivLU<Eigen::Matrix4d> plu(Q_hat_d);
         v = plu.solve(b);
@@ -221,10 +218,36 @@ Mesh_modifier::check_validity(Mesh_connectivity::Half_edge_iterator he) {
   return true;
 }
 
+void Mesh_modifier::connect_with_neighbours() {
+
+}
+
 void
 Mesh_modifier::simplify(int k) {
-  while (k > 0) {
+//  if (k >= (mesh().n_active_half_edges() / 2)) {
+//    printf("Error! Stop simplifying.");
+//    return;
+//  }
+
+  bool valid = true;
+  while (k > 0 && valid) {
     Edge_distance to_pop = this->errors.top();
+    Mesh_connectivity::Vertex_iterator v1 = to_pop.he.origin();
+    Mesh_connectivity::Vertex_iterator v2 = to_pop.he.dest();
+    std::vector<Mesh_connectivity::Vertex_iterator> v1_neighbours, v2_neighbours;
+
+    Mesh_connectivity::Vertex_ring_iterator v1_ring = mesh().vertex_ring_at(v1.index());
+    Mesh_connectivity::Vertex_ring_iterator v2_ring = mesh().vertex_ring_at(v2.index());
+
+    do {
+      v1_neighbours.push_back(v1.half_edge().origin());
+    } while (v1_ring.advance());
+
+    do {
+      v2_neighbours.push_back(v2.half_edge().origin());
+    } while (v2_ring.advance());
+
+
     if (check_validity(to_pop.he)) {
       this->errors.pop();
       to_pop.he.deactivate();
@@ -247,15 +270,13 @@ Mesh_modifier::subdivide() {
   for (int i = 0; i < mesh().n_total_vertices(); i++) {
     Eigen::Vector3d vNew;
     Mesh_connectivity::Vertex_ring_iterator curr = mesh().vertex_ring_at(i);
-    const Mesh_connectivity::Half_edge_iterator firstEdge = curr.half_edge();
     std::vector<Mesh_connectivity::Vertex_iterator> neighbours;
     neighbours.reserve(6);
     int k = 0;
     do {
       neighbours.push_back(curr.half_edge().origin());
-      curr.advance();
       k++;
-    } while (!curr.half_edge().is_equal(firstEdge));
+    } while (curr.advance());
     float beta = compute_old_coeff(k);
     vNew = curr.half_edge().dest().xyz() * (1.0f - (float(k) * beta));
     for (int j = 0; j < k; j++) {
@@ -345,5 +366,6 @@ std::vector<int> Mesh_modifier::get_top_k_errors_edge_vertices(int k) {
 //  std::sort(results.begin(), results.end());
   return results;
 }
+
 } // end of mohe
 } // end of minimesh

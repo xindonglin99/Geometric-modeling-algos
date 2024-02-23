@@ -173,12 +173,13 @@ void
 simplify_pressed(int)
 {
   printf("Simplify button was pressed to remove %d entities \n", globalvars::num_entities_to_simplify);
+
 }
 
 void
 visualize_pressed(int)
 {
-  printf("Visualize button was pressed to visualize the top 10 entities \n");
+  printf("Visualize button was pressed to visualize the top %d entities \n", globalvars::num_entities_to_simplify);
 
   globalvars::is_visualizing = !globalvars::is_visualizing;
   Eigen::Matrix4Xf colors(4, globalvars::mesh.n_active_vertices());
