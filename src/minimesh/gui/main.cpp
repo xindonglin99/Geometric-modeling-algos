@@ -168,15 +168,7 @@ subdivide_pressed(int)
   glutPostRedisplay();
 }
 
-
-void
-simplify_pressed(int)
-{
-  printf("Simplify button was pressed to remove %d entities \n", globalvars::num_entities_to_simplify);
-
-}
-
-void
+  void
 visualize_pressed(int)
 {
   printf("Visualize button was pressed to visualize the top %d entities \n", globalvars::num_entities_to_simplify);
@@ -196,6 +188,22 @@ visualize_pressed(int)
     }
   }
 
+  globalvars::viewer.get_mesh_buffer().set_vertex_colors(colors);
+  glutPostRedisplay();
+}
+
+void
+simplify_pressed(int)
+{
+  printf("Simplify button was pressed to remove %d entities \n", globalvars::num_entities_to_simplify);
+  globalvars::modi.simplify(globalvars::num_entities_to_simplify);
+  mohe::Mesh_connectivity::Defragmentation_maps defrag;
+  globalvars::mesh.compute_defragmention_maps(defrag);
+  globalvars::viewer.get_mesh_buffer().rebuild(globalvars::mesh, defrag);
+
+  globalvars::is_visualizing = false;
+  Eigen::Matrix4Xf colors(4, globalvars::mesh.n_active_vertices());
+  colors.setOnes();
   globalvars::viewer.get_mesh_buffer().set_vertex_colors(colors);
   glutPostRedisplay();
 }
@@ -235,7 +243,7 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub//CPSC524-modeling/mesh");
+    foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524-modeling/mesh");
     mohe::Mesh_io(globalvars::mesh).read_auto("camel.obj");
   }
   else // otherwise use the address specified in the command line
