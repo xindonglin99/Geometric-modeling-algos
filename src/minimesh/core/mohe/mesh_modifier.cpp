@@ -248,29 +248,34 @@ namespace minimesh {
         ) {
             std::vector<double> coords;
             std::vector<int> triangles;
+            std::unordered_map<int, int> old_to_new;
+            std::unordered_map<int, int> oldf_to_new;
 
-            coords.push_back(v1.data().xyz[0]);
-            coords.push_back(v1.data().xyz[1]);
-            coords.push_back(v1.data().xyz[2]);
-
-            int face_counter = 0;
+            int vertex_count = 0;
             do {
+                std::vector<Mesh_connectivity::Vertex_iterator> verts;
                 Mesh_connectivity::Vertex_iterator a = v1_ring.half_edge().origin();
                 Mesh_connectivity::Vertex_iterator b = v1_ring.half_edge().dest();
                 Mesh_connectivity::Vertex_iterator c = v1_ring.half_edge().next().dest();
+                verts.push_back(a);
+                verts.push_back(b);
+                verts.push_back(c);
 
-                if (a.is_equal(v2) || b.is_equal(v2) || c.is_equal(v2)) {
-                    continue;
+                // Add all the vertices relatd to v1
+                for (auto & vert : verts) {
+                    if (old_to_new.find(vert.index()) == old_to_new.end()) {
+                        old_to_new.insert(std::make_pair(vert.index(), vertex_count));
+
+                        coords.push_back(vert.data().xyz[0]);
+                        coords.push_back(vert.data().xyz[1]);
+                        coords.push_back(vert.data().xyz[2]);
+                        vertex_count += 1;
+                    }
                 }
 
-                coords.push_back(a.data().xyz[0]);
-                coords.push_back(a.data().xyz[1]);
-                coords.push_back(a.data().xyz[2]);
+                Mesh_connectivity::Face_iterator
 
-                coords.push_back(c.data().xyz[0]);
-                coords.push_back(c.data().xyz[1]);
-                coords.push_back(c.data().xyz[2]);
-
+                // Add all the faces related to v1
                 triangles.push_back(face_counter * 3);
                 triangles.push_back(face_counter * 3 + 1);
                 triangles.push_back(face_counter * 3 + 2);
