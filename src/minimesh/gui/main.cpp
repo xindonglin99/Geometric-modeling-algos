@@ -182,9 +182,11 @@ visualize_pressed(int)
     std::vector<int> vert_ind = globalvars::modi.get_top_k_errors_edge_vertices(globalvars::num_entities_to_simplify);
     mohe::Mesh_connectivity::Defragmentation_maps defrag;
     globalvars::mesh.compute_defragmention_maps(defrag);
-    for (int ind: vert_ind) {
-      int defrag_vert_ind = defrag.old2new_vertices[ind];
-      colors.col(defrag_vert_ind) << 1, 0, 0, 1;
+    if (!vert_ind.empty()) {
+      for (int ind: vert_ind) {
+        int defrag_vert_ind = defrag.old2new_vertices[ind];
+        colors.col(defrag_vert_ind) << 1, 0, 0, 1;
+      }
     }
   }
 
@@ -243,7 +245,7 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524-modeling/mesh");
+    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524-modeling/mesh");
     mohe::Mesh_io(globalvars::mesh).read_auto("camel.obj");
   }
   else // otherwise use the address specified in the command line

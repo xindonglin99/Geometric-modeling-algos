@@ -11,6 +11,7 @@
 #include <Eigen/core>
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 #include <queue>
+#include <unordered_map>
 
 
 namespace minimesh {
@@ -71,12 +72,10 @@ namespace minimesh {
 
             std::vector<Eigen::Matrix4d> Qs;
 
-            static std::tuple<std::vector<double>, std::vector<int>, int>
+            static std::tuple<std::vector<double>, std::vector<int>, std::unordered_map<int, int>, std::unordered_map<int, int>>
             generate_coords_traingles(
                 Mesh_connectivity::Vertex_ring_iterator v1_ring,
-                Mesh_connectivity::Vertex_ring_iterator v2_ring,
-                Mesh_connectivity::Vertex_iterator v1,
-                Mesh_connectivity::Vertex_iterator v2
+                Mesh_connectivity::Vertex_ring_iterator v2_ring
             );
 
             // Compute coefficient for even vertices
@@ -98,9 +97,10 @@ namespace minimesh {
 
             // Connect the new vertex to its neighbours
             static void connect_with_neighbours(
-                Mesh_connectivity::Vertex_ring_iterator &original_v,
-                Mesh_connectivity::Vertex_iterator &other_v,
-                Mesh_connectivity::Vertex_iterator &new_v_itr
+                Mesh_connectivity & temp_mesh,
+                Eigen::Vector3d new_v_xyz,
+                int v1_index,
+                int v2_index
             );
         };
     } // end of mohe

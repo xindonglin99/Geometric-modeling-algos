@@ -6,6 +6,7 @@
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <unordered_set>
+#include <algorithm>
 
 namespace minimesh {
     namespace mohe {
@@ -224,27 +225,93 @@ namespace minimesh {
         }
 
         void Mesh_modifier::connect_with_neighbours(
-            Mesh_connectivity::Vertex_ring_iterator &original_v,
-            Mesh_connectivity::Vertex_iterator &other_v,
-            Mesh_connectivity::Vertex_iterator &new_v_itr
+            Mesh_connectivity & temp_mesh,
+            Eigen::Vector3d new_v_xyz,
+            int v1_index,
+            int v2_index
         ) {
-            // Loop over the half-edge that goes into the original v
+            temp_mesh.vertex_at(v1_index).data().xyz = new_v_xyz;
+            Mesh_connectivity::Vertex_ring_iterator v2 = temp_mesh.vertex_ring_at(v2_index);
+            Mesh_connectivity::Vertex_ring_iterator v2_rest = temp_mesh.vertex_ring_at(v2_index);
+            int he_at_v1_v2_ind = -10;
+
             do {
-                if (!original_v.half_edge().origin().is_equal(other_v)) {
-                    original_v.half_edge().twin().data().origin = new_v_itr.index();
-                    if (new_v_itr.data().half_edge == Mesh_connectivity::invalid_index) {
-                        new_v_itr.data().half_edge = original_v.half_edge().index();
-                    }
-                }
-            } while (original_v.advance());
+              if (v2.half_edge().origin().is_equal(temp_mesh.vertex_at(v1_index))) {
+                he_at_v1_v2_ind = v2.half_edge().index();
+                break;
+              }
+            } while (v2.advance());
+
+            Mesh_connectivity::Half_edge_iterator he_at_v1_v2 = temp_mesh.half_edge_at(he_at_v1_v2_ind);
+            // Deactivating 6 edges associating to the 2 deleted faces
+            he_at_v1_v2.deactivate();
+            he_at_v1_v2.twin().deactivate();
+
+            he_at_v1_v2.next().deactivate();
+            he_at_v1_v2.next().twin().deactivate();
+
+            he_at_v1_v2.twin().prev().deactivate();
+            he_at_v1_v2.twin().prev().twin().deactivate();
+
+            he_at_v1_v2.face().deactivate();
+            he_at_v1_v2.twin().face().deactivate();
+
+            temp_mesh.vertex_at(v2_index).deactivate();
+            // Do the rest of triangles
+            do {
+              if (v2_rest.half_edge().is_active()) {
+                v2_rest.half_edge().twin().data().origin = v1_index;
+              }
+            } while (v2_rest.advance());
+
+            // Need to fix connectivity
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_1 = he_at_v1_v2.prev();
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_2 = he_at_v1_v2.twin().next();
+
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_3 = he_at_v1_v2.next().twin().next();
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_4 = he_need_to_change_3.next();
+
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_5 = he_at_v1_v2.twin().prev().twin().prev();
+            Mesh_connectivity::Half_edge_iterator he_need_to_change_6 = he_need_to_change_5.prev();
+
+            // If the face contains deleted edges, use the prev one
+            if (he_at_v1_v2.next().twin().face().half_edge().is_equal(he_at_v1_v2.next().twin())) {
+              he_at_v1_v2.next().twin().face().data().half_edge = he_at_v1_v2.next().twin().prev().index();
+            }
+
+            if (he_at_v1_v2.twin().prev().twin().face().half_edge().is_equal(he_at_v1_v2.twin().prev().twin())) {
+              he_at_v1_v2.twin().prev().twin().face().data().half_edge = he_at_v1_v2.twin().prev().twin().prev().index();
+            }
+
+            temp_mesh.vertex_at(v1_index).data().half_edge = he_need_to_change_2.index();
+            he_need_to_change_1.origin().data().half_edge = he_need_to_change_1.index();
+            he_need_to_change_2.dest().data().half_edge = he_need_to_change_6.index();
+
+
+            he_need_to_change_1.data().prev = he_need_to_change_4.index();
+            he_need_to_change_1.data().next = he_need_to_change_3.index();
+
+            he_need_to_change_2.data().prev = he_need_to_change_5.index();
+            he_need_to_change_2.data().next = he_need_to_change_6.index();
+
+            he_need_to_change_3.data().prev = he_need_to_change_1.index();
+
+            he_need_to_change_4.data().next = he_need_to_change_1.index();
+
+            he_need_to_change_5.data().next = he_need_to_change_2.index();
+
+            he_need_to_change_6.data().prev = he_need_to_change_2.index();
+
+            he_need_to_change_3.data().origin = v1_index;
+            // Give the left edge correct faces
+            he_need_to_change_1.data().face = he_need_to_change_3.face().index();
+            he_need_to_change_2.data().face = he_need_to_change_6.face().index();
         }
 
-        std::tuple<std::vector<double>, std::vector<int>, int>
+        std::tuple<std::vector<double>, std::vector<int>, std::unordered_map<int, int>, std::unordered_map<int, int>>
         Mesh_modifier::generate_coords_traingles(
             Mesh_connectivity::Vertex_ring_iterator v1_ring,
-            Mesh_connectivity::Vertex_ring_iterator v2_ring,
-            Mesh_connectivity::Vertex_iterator v1,
-            Mesh_connectivity::Vertex_iterator v2
+            Mesh_connectivity::Vertex_ring_iterator v2_ring
         ) {
             std::vector<double> coords;
             std::vector<int> triangles;
@@ -252,6 +319,7 @@ namespace minimesh {
             std::unordered_map<int, int> oldf_to_new;
 
             int vertex_count = 0;
+            int face_counter = 0;
             do {
                 std::vector<Mesh_connectivity::Vertex_iterator> verts;
                 Mesh_connectivity::Vertex_iterator a = v1_ring.half_edge().origin();
@@ -261,7 +329,7 @@ namespace minimesh {
                 verts.push_back(b);
                 verts.push_back(c);
 
-                // Add all the vertices relatd to v1
+                // Add all the vertices related to v1
                 for (auto & vert : verts) {
                     if (old_to_new.find(vert.index()) == old_to_new.end()) {
                         old_to_new.insert(std::make_pair(vert.index(), vertex_count));
@@ -273,46 +341,64 @@ namespace minimesh {
                     }
                 }
 
-                Mesh_connectivity::Face_iterator
-
                 // Add all the faces related to v1
-                triangles.push_back(face_counter * 3);
-                triangles.push_back(face_counter * 3 + 1);
-                triangles.push_back(face_counter * 3 + 2);
-                face_counter += 1;
+                Mesh_connectivity::Face_iterator face = v1_ring.half_edge().face();
+                if (oldf_to_new.find(face.index()) == oldf_to_new.end()) {
+                  oldf_to_new.insert(std::make_pair(face.index(), face_counter));
+                  // Add all the faces related to v1
+                  triangles.push_back(old_to_new[face.half_edge().origin().index()]);
+                  triangles.push_back(old_to_new[face.half_edge().dest().index()]);
+                  triangles.push_back(old_to_new[face.half_edge().next().dest().index()]);
+                  face_counter += 1;
+                }
             } while (v1_ring.advance());
 
-            do {
-                Mesh_connectivity::Vertex_iterator a = v2_ring.half_edge().origin();
-                Mesh_connectivity::Vertex_iterator b = v2_ring.half_edge().dest();
-                Mesh_connectivity::Vertex_iterator c = v2_ring.half_edge().next().dest();
+          do {
+            std::vector<Mesh_connectivity::Vertex_iterator> verts;
+            Mesh_connectivity::Vertex_iterator a = v2_ring.half_edge().origin();
+            Mesh_connectivity::Vertex_iterator b = v2_ring.half_edge().dest();
+            Mesh_connectivity::Vertex_iterator c = v2_ring.half_edge().next().dest();
+            verts.push_back(a);
+            verts.push_back(b);
+            verts.push_back(c);
 
-                coords.push_back(a.data().xyz[0]);
-                coords.push_back(a.data().xyz[1]);
-                coords.push_back(a.data().xyz[2]);
+            // Add all the vertices related to v1
+            for (auto & vert : verts) {
+              if (old_to_new.find(vert.index()) == old_to_new.end()) {
+                old_to_new.insert(std::make_pair(vert.index(), vertex_count));
 
-                coords.push_back(b.data().xyz[0]);
-                coords.push_back(b.data().xyz[1]);
-                coords.push_back(b.data().xyz[2]);
+                coords.push_back(vert.data().xyz[0]);
+                coords.push_back(vert.data().xyz[1]);
+                coords.push_back(vert.data().xyz[2]);
+                vertex_count += 1;
+              }
+            }
 
-                coords.push_back(c.data().xyz[0]);
-                coords.push_back(c.data().xyz[1]);
-                coords.push_back(c.data().xyz[2]);
+            // Add all the faces related to v1
+            Mesh_connectivity::Face_iterator face = v2_ring.half_edge().face();
+            if (oldf_to_new.find(face.index()) == oldf_to_new.end()) {
+              oldf_to_new.insert(std::make_pair(face.index(), face_counter));
+              // Add all the faces related to v1
+              triangles.push_back(old_to_new[face.half_edge().origin().index()]);
+              triangles.push_back(old_to_new[face.half_edge().dest().index()]);
+              triangles.push_back(old_to_new[face.half_edge().next().dest().index()]);
+              face_counter += 1;
+            }
+          } while (v2_ring.advance());
 
-                triangles.push_back(face_counter * 3);
-                triangles.push_back(face_counter * 3 + 1);
-                triangles.push_back(face_counter * 3 + 2);
-                face_counter += 1;
-            } while (v2_ring.advance());
-
-            return std::make_pair(coords, triangles);
+          return std::make_tuple(coords, triangles, old_to_new, oldf_to_new);
         }
 
         void
         Mesh_modifier::simplify(int k) {
             while (k > 0 && !this->errors.empty()) {
                 Edge_distance to_pop = this->errors.top();
-                if (!to_pop.he.is_active()) {continue;}
+                this->errors.pop();
+                if (!to_pop.he.is_active()) {
+                  continue;
+                }
+
+                // v1 will keep, v2 will deactivate
                 Mesh_connectivity::Vertex_iterator v1 = to_pop.he.origin();
                 Mesh_connectivity::Vertex_iterator v2 = to_pop.he.dest();
 
@@ -320,17 +406,16 @@ namespace minimesh {
                 Mesh_connectivity::Vertex_ring_iterator v2_ring = mesh().vertex_ring_at(v2.index());
 
                 Mesh_connectivity temp_mesh;
-                std::pair<std::vector<double>, std::vector<int>> result = generate_coords_traingles(v1_ring, v2_ring, v1, v2);
-                temp_mesh.build_from_triangles(result.first, result.second);
+                auto result = generate_coords_traingles(v1_ring, v2_ring);
+                temp_mesh.build_from_triangles(std::get<0>(result), std::get<1>(result));
 
-                connect_with_neighbours();
-                if (!temp_mesh.check_sanity_slowly()) {
+                connect_with_neighbours(temp_mesh, to_pop.v,std::get<2>(result)[v1.index()],std::get<2>(result)[v2.index()]);
+                if (!temp_mesh.check_sanity_slowly(true)) {
                     printf("Current edge to collapse creates invalid topology. Skipping..");
                     continue;
                 }
 
-                connect_with_neighbours();
-                this->errors.pop();
+                connect_with_neighbours(mesh(), to_pop.v, v1.index(), v2.index());
                 this->update_Qs(v1);
                 this->update_errors(v1);
                 k--;
@@ -438,8 +523,10 @@ namespace minimesh {
 
             while (!tmpQ.empty() && count > 0) {
                 Edge_distance top = tmpQ.top();
-                results.push_back(top.he.origin().index());
-                results.push_back(top.he.dest().index());
+                if (top.he.is_active()) {
+                  results.push_back(top.he.origin().index());
+                  results.push_back(top.he.dest().index());
+                }
                 tmpQ.pop();
                 count--;
             }
