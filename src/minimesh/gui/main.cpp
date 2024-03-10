@@ -41,58 +41,50 @@ int num_entities_to_simplify;
 //
 Eigen::Matrix3Xd displaced_vertex_positions;
 bool is_visualizing = false;
+//
+int param_id = 0;
 }
 
 
 // ======================================================
 //              FREEGLUT CALL BACKS
 // ======================================================
-namespace freeglutcallback
-{
+namespace freeglutcallback {
 
 void
-draw()
-{
+draw() {
   globalvars::viewer.draw();
 }
 
-
 void
-window_reshaped(int w, int h)
-{
+window_reshaped(int w, int h) {
   bool should_redraw = false;
   should_redraw = should_redraw || globalvars::viewer.window_reshaped(w, h);
 
-  if(should_redraw)
+  if (should_redraw)
     glutPostRedisplay();
 }
 
-
 void
-keyboard_pressed(unsigned char c, int x, int y)
-{
+keyboard_pressed(unsigned char c, int x, int y) {
   bool should_redraw = false;
   should_redraw = should_redraw || globalvars::viewer.keyboard_pressed(c, x, y);
 
-  if(should_redraw)
+  if (should_redraw)
     glutPostRedisplay();
 }
 
-
 void
-keyboard_arrows_pressed(int c, int x, int y)
-{
+keyboard_arrows_pressed(int c, int x, int y) {
   bool should_redraw = false;
   should_redraw = should_redraw || globalvars::viewer.keyboard_pressed(c, x, y);
 
-  if(should_redraw)
+  if (should_redraw)
     glutPostRedisplay();
 }
 
-
 void
-mouse_pushed(int button, int state, int x, int y)
-{
+mouse_pushed(int button, int state, int x, int y) {
   bool should_redraw = false;
   should_redraw = should_redraw || globalvars::viewer.mouse_pushed(button, state, x, y);
 
@@ -104,18 +96,16 @@ mouse_pushed(int button, int state, int x, int y)
     int clicked_on_vertex;
     bool did_user_click;
     globalvars::viewer.get_and_clear_vertex_selection(did_user_click, clicked_on_vertex);
-    if(did_user_click)
+    if (did_user_click)
       printf("User just clicked on vertex %d \n", clicked_on_vertex);
   }
 
-  if(should_redraw)
+  if (should_redraw)
     glutPostRedisplay();
 }
 
-
 void
-mouse_moved(int x, int y)
-{
+mouse_moved(int x, int y) {
   bool should_redraw = false;
   should_redraw = should_redraw || globalvars::viewer.mouse_moved(x, y);
 
@@ -131,8 +121,7 @@ mouse_moved(int x, int y)
     int pulled_vert;
     globalvars::viewer.get_and_clear_vertex_displacement(has_pull_performed, pull_amount, pulled_vert);
 
-    if(has_pull_performed)
-    {
+    if (has_pull_performed) {
       force_assert(pulled_vert != Mesh_viewer::invalid_index);
 
       // Get current displacement and apply the change to the mesh renderer
@@ -151,14 +140,12 @@ mouse_moved(int x, int y)
     }
   }
 
-  if(should_redraw)
+  if (should_redraw)
     glutPostRedisplay();
 }
 
-
 void
-subdivide_pressed(int)
-{
+subdivide_pressed(int) {
   printf("Subdivide button was pressed \n");
 
   globalvars::modi.subdivide();
@@ -168,22 +155,20 @@ subdivide_pressed(int)
   glutPostRedisplay();
 }
 
-  void
-visualize_pressed(int)
-{
+void
+visualize_pressed(int) {
   printf("Visualize button was pressed to visualize the top %d entities \n", globalvars::num_entities_to_simplify);
 
   globalvars::is_visualizing = !globalvars::is_visualizing;
   Eigen::Matrix4Xf colors(4, globalvars::mesh.n_active_vertices());
   colors.setOnes();
 
-
   if (globalvars::is_visualizing) {
     std::vector<int> vert_ind = globalvars::modi.get_top_k_errors_edge_vertices(globalvars::num_entities_to_simplify);
     mohe::Mesh_connectivity::Defragmentation_maps defrag;
     globalvars::mesh.compute_defragmention_maps(defrag);
     if (!vert_ind.empty()) {
-      for (int ind: vert_ind) {
+      for (int ind : vert_ind) {
         int defrag_vert_ind = defrag.old2new_vertices[ind];
         colors.col(defrag_vert_ind) << 1, 0, 0, 1;
       }
@@ -195,8 +180,7 @@ visualize_pressed(int)
 }
 
 void
-simplify_pressed(int)
-{
+simplify_pressed(int) {
   printf("Simplify button was pressed to remove %d entities \n", globalvars::num_entities_to_simplify);
   globalvars::modi.simplify(globalvars::num_entities_to_simplify);
   mohe::Mesh_connectivity::Defragmentation_maps defrag;
@@ -210,10 +194,8 @@ simplify_pressed(int)
   glutPostRedisplay();
 }
 
-
 void
-show_spheres_pressed(int)
-{
+show_spheres_pressed(int) {
   //
   // Sample of using Mesh_viewer for MESH DEFORMATION ASSIGNMENT
   // Here I color the vertices (draw spheres on them)
@@ -231,6 +213,23 @@ show_spheres_pressed(int)
   glutPostRedisplay();
 }
 
+void
+print_param_id(int id)
+{
+  printf("The current ID is %d. \n", globalvars::param_id);
+}
+
+void
+parametrize(int)
+{
+  printf("Parametrize the current mesh.\n");
+  if (globalvars::param_id == 0) {
+    globalvars::modi.parametrize_tutte();
+  } else {
+    globalvars::modi.parametrize_LSCM();
+  }
+}
+
 }
 
 
@@ -245,8 +244,8 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524-modeling/mesh");
-    mohe::Mesh_io(globalvars::mesh).read_auto("camel.obj");
+    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open");
+    mohe::Mesh_io(globalvars::mesh).read_auto("camel_head.obj");
   }
   else // otherwise use the address specified in the command line
   {
@@ -346,6 +345,20 @@ main(int argc, char * argv[])
   //
   GLUI_Button * button_visualize = globalvars::glui->add_button("Visualize", -1, freeglutcallback::visualize_pressed);
   button_visualize->set_w(200);
+
+  //
+  // Add the parametrization panel and parametrization button
+  //
+  GLUI_Panel * panel_parametrization = globalvars::glui->add_panel("Parametrization Methods");
+  GLUI_RadioGroup* parametrization_group = globalvars::glui->add_radiogroup_to_panel(
+      panel_parametrization,
+      &globalvars::param_id,
+      -1,
+      freeglutcallback::print_param_id);
+  globalvars::glui->add_radiobutton_to_group(parametrization_group, "Harmonic");
+  globalvars::glui->add_radiobutton_to_group(parametrization_group, "LSCM");
+  globalvars::glui->add_button("Parametrization", -1, freeglutcallback::parametrize);
+
 
   //
   // Add show spheres button to demo how to draw spheres on top of the vertices

@@ -54,6 +54,12 @@ namespace minimesh {
 
             std::vector<int> get_top_k_errors_edge_vertices(int k);
 
+            // Parametrize with tutte criteria
+            void parametrize_tutte();
+
+            // Parametrize with LSCM criteria
+            void parametrize_LSCM();
+
         private:
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
