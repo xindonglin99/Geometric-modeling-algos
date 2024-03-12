@@ -513,17 +513,26 @@ Mesh_modifier::subdivide() {
 }
 
 void Mesh_modifier::parametrize_tutte() {
-  Mesh_connectivity::Vertex_iterator first_boundary_vertex{};
-  std::vector<Mesh_connectivity::Half_edge_data> boundaries;
-  std::vector<int> ind;
-  ind.reserve(int(mesh().n_total_half_edges()/2));
-  boundaries.reserve(mesh().n_active_half_edges());
+  Mesh_connectivity::Half_edge_iterator first_boundary_he{};
+
   for (int i=0; i < mesh().n_total_half_edges(); ++i) {
     if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
-      boundaries.push_back(mesh().half_edge_at(i).data());
-      ind.push_back(i);
+      first_boundary_he = mesh().half_edge_at(i);
+      break;
     }
   }
+
+  std::vector<Mesh_connectivity::Vertex_iterator> boundaries_v_order;
+  std::vector<Eigen::Vector3d> boundaries_v_coord;
+  boundaries_v_order.reserve(int(mesh().n_total_vertices()/2));
+  boundaries_v_coord.reserve(int(mesh().n_total_vertices()/2));
+  Mesh_connectivity::Half_edge_iterator tmp = first_boundary_he;
+  do {
+    boundaries_v_order.push_back(tmp.origin());
+    boundaries_v_coord.push_back(tmp.origin().xyz());
+    tmp = tmp.prev();
+  } while (!tmp.is_equal(first_boundary_he));
+
 
 }
 
