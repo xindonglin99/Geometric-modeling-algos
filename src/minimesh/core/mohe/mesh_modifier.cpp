@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include "iostream"
 #include <map>
 #include <minimesh/core/mohe/mesh_modifier.hpp>
@@ -9,6 +10,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <cmath>
+
 
 namespace minimesh {
 namespace mohe {
@@ -515,35 +517,32 @@ Mesh_modifier::subdivide() {
 }
 
 void Mesh_modifier::parametrize_tutte() {
-  Mesh_connectivity::Half_edge_iterator first_boundary_he{};
+  int first_boundary_he_index = -3;
   // Total number of vertices
-  const u_int N = mesh().n_total_vertices();
+  const int N = mesh().n_total_vertices();
 
   for (int i=0; i < mesh().n_total_half_edges(); ++i) {
     if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
-      first_boundary_he = mesh().half_edge_at(i);
+      first_boundary_he_index = i;
       break;
     }
   }
 
   //Get the boundary vertices in counter-clockwise order
   std::vector<Mesh_connectivity::Vertex_iterator> boundary_v;
-  std::vector<Eigen::Vector3d> boundary_v_coords;
   std::vector<int> boundary_ind;
-  boundary_v.reserve(mesh().n_total_vertices() / 2);
-  boundary_v_coords.reserve(mesh().n_total_vertices() / 2);
-  boundary_ind.reserve(mesh().n_total_vertices() / 2);
-  Mesh_connectivity::Half_edge_iterator tmp = first_boundary_he;
+  boundary_v.reserve(mesh().n_total_vertices() / 3);
+  boundary_ind.reserve(mesh().n_total_vertices() / 3);
+  Mesh_connectivity::Half_edge_iterator tmp = mesh().half_edge_at(first_boundary_he_index);
   do {
     // prev and origin for counter-clockwise order
     boundary_v.push_back(tmp.origin());
-    boundary_v_coords.push_back(tmp.origin().xyz());
     boundary_ind.push_back(tmp.origin().index());
     tmp = tmp.prev();
-  } while (!tmp.is_equal(first_boundary_he));
+  } while (!tmp.is_equal(mesh().half_edge_at(first_boundary_he_index)));
 
   // Boundary vertices size K
-  const u_int K = boundary_v.size();
+  const int K = (int) boundary_v.size();
 
   std::vector<double> U(K);
   std::vector<double> V(K);
@@ -557,17 +556,15 @@ void Mesh_modifier::parametrize_tutte() {
 
   // Calculate Laplacian matrix
   Eigen::SparseMatrix<double> W(N, N);
-  Eigen::SparseMatrix<double> b_u(N, 1);
-  Eigen::SparseMatrix<double> b_v(N, 1);
-  b_u.setZero();
-  b_v.setZero();
+  Eigen::VectorXd b_u = Eigen::VectorXd::Zero(N);
+  Eigen::VectorXd b_v = Eigen::VectorXd::Zero(N);
   for (int i=0; i<N; ++i) {
     auto it = std::find(boundary_ind.begin(), boundary_ind.end(), i);
     if (it != boundary_ind.end()) {
       W.insert(i, i) = 1.0;
       const auto index = std::distance(boundary_ind.begin(), it);
-      b_u.insert(i, 0) = U[index];
-      b_v.insert(i, 0) = V[index];
+      b_u[i] = U[index];
+      b_v[i] = V[index];
     } else {
       Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
       double sum = 0.0;
@@ -587,19 +584,16 @@ void Mesh_modifier::parametrize_tutte() {
         double theta_curr = calculate_angle(vector_ij, vector_ik_curr);
         double theta_twin = calculate_angle(vector_ij, vector_ik_twin);
 
-        // double unormalized_lambda = (tan(0.5 * theta_curr) + tan(0.5 * theta_twin)) / vector_ij.norm();
-        double unormalized_lambda = 1.0;
+        double unormalized_lambda = (tan(0.5 * theta_curr) + tan(0.5 * theta_twin)) / vector_ij.norm();
         W.insert(i, jth) = unormalized_lambda;
         sum += unormalized_lambda;
-      } while (!ring.advance());
-
+      } while (ring.advance());
       W.insert(i, i) = -sum;
     }
   }
+
   // Solve the two systems using a sparseLU solver
   W.makeCompressed();
-  b_u.makeCompressed();
-  b_v.makeCompressed();
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(W);
 
@@ -613,7 +607,7 @@ void Mesh_modifier::parametrize_tutte() {
   }
 }
 
-  double Mesh_modifier::calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b) {
+double Mesh_modifier::calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b) {
     return acos(a.normalized().dot(b.normalized()));
 }
 

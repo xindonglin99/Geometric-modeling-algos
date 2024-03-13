@@ -214,7 +214,7 @@ show_spheres_pressed(int) {
 }
 
 void
-print_param_id(int id)
+print_param_id(int)
 {
   printf("The current ID is %d. \n", globalvars::param_id);
 }
