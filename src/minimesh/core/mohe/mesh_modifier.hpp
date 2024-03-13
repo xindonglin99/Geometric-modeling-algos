@@ -108,6 +108,9 @@ namespace minimesh {
                 int v1_index,
                 int v2_index
             );
+
+            // Calculate the angles between the two vector in radians
+            static double calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b);
         };
     } // end of mohe
 } // end of minimesh

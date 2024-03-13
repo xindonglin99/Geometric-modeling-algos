@@ -3,10 +3,12 @@
 #include <minimesh/core/mohe/mesh_modifier.hpp>
 #include <minimesh/core/util/assert.hpp>
 #include <vector>
+#include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <unordered_set>
 #include <algorithm>
+#include <cmath>
 
 namespace minimesh {
 namespace mohe {
@@ -514,6 +516,8 @@ Mesh_modifier::subdivide() {
 
 void Mesh_modifier::parametrize_tutte() {
   Mesh_connectivity::Half_edge_iterator first_boundary_he{};
+  // Total number of vertices
+  const u_int N = mesh().n_total_vertices();
 
   for (int i=0; i < mesh().n_total_half_edges(); ++i) {
     if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
@@ -522,18 +526,95 @@ void Mesh_modifier::parametrize_tutte() {
     }
   }
 
-  std::vector<Mesh_connectivity::Vertex_iterator> boundaries_v_order;
-  std::vector<Eigen::Vector3d> boundaries_v_coord;
-  boundaries_v_order.reserve(int(mesh().n_total_vertices()/2));
-  boundaries_v_coord.reserve(int(mesh().n_total_vertices()/2));
+  //Get the boundary vertices in counter-clockwise order
+  std::vector<Mesh_connectivity::Vertex_iterator> boundary_v;
+  std::vector<Eigen::Vector3d> boundary_v_coords;
+  std::vector<int> boundary_ind;
+  boundary_v.reserve(mesh().n_total_vertices() / 2);
+  boundary_v_coords.reserve(mesh().n_total_vertices() / 2);
+  boundary_ind.reserve(mesh().n_total_vertices() / 2);
   Mesh_connectivity::Half_edge_iterator tmp = first_boundary_he;
   do {
-    boundaries_v_order.push_back(tmp.origin());
-    boundaries_v_coord.push_back(tmp.origin().xyz());
+    // prev and origin for counter-clockwise order
+    boundary_v.push_back(tmp.origin());
+    boundary_v_coords.push_back(tmp.origin().xyz());
+    boundary_ind.push_back(tmp.origin().index());
     tmp = tmp.prev();
   } while (!tmp.is_equal(first_boundary_he));
 
+  // Boundary vertices size K
+  const u_int K = boundary_v.size();
 
+  std::vector<double> U(K);
+  std::vector<double> V(K);
+
+  // Map the boundary to unit circle
+  for (int i=0; i<K; ++i) {
+    // Upper half of the circle
+    U[i] = cos(2 * M_PI * i / K);
+    V[i] = sin(2 * M_PI * i / K);
+  }
+
+  // Calculate Laplacian matrix
+  Eigen::SparseMatrix<double> W(N, N);
+  Eigen::SparseMatrix<double> b_u(N, 1);
+  Eigen::SparseMatrix<double> b_v(N, 1);
+  b_u.setZero();
+  b_v.setZero();
+  for (int i=0; i<N; ++i) {
+    auto it = std::find(boundary_ind.begin(), boundary_ind.end(), i);
+    if (it != boundary_ind.end()) {
+      W.insert(i, i) = 1.0;
+      const auto index = std::distance(boundary_ind.begin(), it);
+      b_u.insert(i, 0) = U[index];
+      b_v.insert(i, 0) = V[index];
+    } else {
+      Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+      double sum = 0.0;
+      do {
+        Mesh_connectivity::Vertex_iterator jth_vertex = ring.half_edge().origin();
+        int jth = jth_vertex.index();
+
+        // This triangle (current face)
+        Mesh_connectivity::Vertex_iterator kth_curr = ring.half_edge().next().dest();
+        Eigen::Vector3d vector_ij = (jth_vertex.xyz() - ring.half_edge().dest().xyz());
+        Eigen::Vector3d vector_ik_curr = (kth_curr.xyz() - ring.half_edge().dest().xyz());
+
+        // Neighbor triangle (twin face)
+        Mesh_connectivity::Vertex_iterator kth_twin = ring.half_edge().twin().next().dest();
+        Eigen::Vector3d vector_ik_twin = (kth_twin.xyz() - ring.half_edge().dest().xyz());
+
+        double theta_curr = calculate_angle(vector_ij, vector_ik_curr);
+        double theta_twin = calculate_angle(vector_ij, vector_ik_twin);
+
+        // double unormalized_lambda = (tan(0.5 * theta_curr) + tan(0.5 * theta_twin)) / vector_ij.norm();
+        double unormalized_lambda = 1.0;
+        W.insert(i, jth) = unormalized_lambda;
+        sum += unormalized_lambda;
+      } while (!ring.advance());
+
+      W.insert(i, i) = -sum;
+    }
+  }
+  // Solve the two systems using a sparseLU solver
+  W.makeCompressed();
+  b_u.makeCompressed();
+  b_v.makeCompressed();
+  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+  solver.compute(W);
+
+  Eigen::VectorXd solved_u = solver.solve(b_u);
+  Eigen::VectorXd solved_v = solver.solve(b_v);
+
+  for (int i=0; i<N; ++i) {
+    mesh().vertex_at(i).data().xyz[0] = solved_u[i];
+    mesh().vertex_at(i).data().xyz[1] = solved_v[i];
+    mesh().vertex_at(i).data().xyz[2] = 0.0;
+  }
+}
+
+  double Mesh_modifier::calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b) {
+    return acos(a.normalized().dot(b.normalized()));
 }
 
 void Mesh_modifier::parametrize_LSCM() {
