@@ -682,16 +682,22 @@ void Mesh_modifier::parametrize_LSCM() {
   // Loop through all the faces
   for (int i=0; i<F; ++i) {
     Mesh_connectivity::Half_edge_iterator he = mesh().face_at(i).half_edge();
+    int corner_count = 0;
     do {
       Mesh_connectivity::Vertex_iterator P1 = he.dest();
       Mesh_connectivity::Vertex_iterator P2 = he.origin();
       Mesh_connectivity::Vertex_iterator P3 = he.next().dest();
 
       Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
+      double b_sum = 0;
+      if (P1.index() == fixed_verts_ind.first) {
+        b_sum += (rot_M(0,0) -1) * u1_fixed;
+        b_sum += ()
+      }
 
 
 
-
+      corner_count++;
       he = he.next();
     } while (!he.is_equal(mesh().face_at(i).half_edge()));
   }
