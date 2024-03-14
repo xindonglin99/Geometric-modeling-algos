@@ -111,6 +111,15 @@ namespace minimesh {
 
             // Calculate the angles between the two vector in radians
             static double calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b);
+
+            // Find boundaries vertices in a counter-clockwise order (assume no interior holes)
+            std::pair<std::vector<Mesh_connectivity::Vertex_iterator>, std::vector<int>> find_boundary_verts();
+
+            // Find farthest points in the boundary
+            static std::pair<int, int> find_farthest(std::vector<Mesh_connectivity::Vertex_iterator> verts);
+
+            // Return a scaled rotation matrix that taks P1P2 to P1P3
+            static Eigen::Matrix2d LSCM_coeff_M(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& P3);
         };
     } // end of mohe
 } // end of minimesh

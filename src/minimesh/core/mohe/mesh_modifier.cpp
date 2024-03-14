@@ -517,29 +517,12 @@ Mesh_modifier::subdivide() {
 }
 
 void Mesh_modifier::parametrize_tutte() {
-  int first_boundary_he_index = -3;
-  // Total number of vertices
   const int N = mesh().n_total_vertices();
 
-  for (int i=0; i < mesh().n_total_half_edges(); ++i) {
-    if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
-      first_boundary_he_index = i;
-      break;
-    }
-  }
-
   //Get the boundary vertices in counter-clockwise order
-  std::vector<Mesh_connectivity::Vertex_iterator> boundary_v;
-  std::vector<int> boundary_ind;
-  boundary_v.reserve(mesh().n_total_vertices() / 3);
-  boundary_ind.reserve(mesh().n_total_vertices() / 3);
-  Mesh_connectivity::Half_edge_iterator tmp = mesh().half_edge_at(first_boundary_he_index);
-  do {
-    // prev and origin for counter-clockwise order
-    boundary_v.push_back(tmp.origin());
-    boundary_ind.push_back(tmp.origin().index());
-    tmp = tmp.prev();
-  } while (!tmp.is_equal(mesh().half_edge_at(first_boundary_he_index)));
+  const auto p = find_boundary_verts();
+  std::vector<Mesh_connectivity::Vertex_iterator> boundary_v = p.first;
+  std::vector<int> boundary_ind = p.second;
 
   // Boundary vertices size K
   const int K = (int) boundary_v.size();
@@ -611,7 +594,109 @@ double Mesh_modifier::calculate_angle(const Eigen::Vector3d &a, const Eigen::Vec
     return acos(a.normalized().dot(b.normalized()));
 }
 
+std::pair<std::vector<Mesh_connectivity::Vertex_iterator>, std::vector<int>> Mesh_modifier::find_boundary_verts() {
+  int first_boundary_he_index = -3;
+  // Total number of vertices
+
+  for (int i=0; i < mesh().n_total_half_edges(); ++i) {
+    if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
+      first_boundary_he_index = i;
+      break;
+    }
+  }
+
+  //Get the boundary vertices in counter-clockwise order
+  std::vector<Mesh_connectivity::Vertex_iterator> boundary_v;
+  std::vector<int> boundary_ind;
+  boundary_v.reserve(mesh().n_total_vertices() / 3);
+  boundary_ind.reserve(mesh().n_total_vertices() / 3);
+  Mesh_connectivity::Half_edge_iterator tmp = mesh().half_edge_at(first_boundary_he_index);
+  do {
+    // prev and origin for counter-clockwise order
+    boundary_v.push_back(tmp.origin());
+    boundary_ind.push_back(tmp.origin().index());
+    tmp = tmp.prev();
+  } while (!tmp.is_equal(mesh().half_edge_at(first_boundary_he_index)));
+
+  return std::make_pair(boundary_v, boundary_ind);
+}
+
+std::pair<int, int> Mesh_modifier::find_farthest(std::vector<Mesh_connectivity::Vertex_iterator> verts) {
+  double max_dist = -1;
+  std::pair<int, int> curr_largest_ind = std::make_pair(-1, -1);
+
+  for (int i=0; i<verts.size(); ++i) {
+    for (int j=0; j<verts.size(); ++j) {
+      const double curr_dist = (verts[i].xyz() - verts[j].xyz()).norm();
+      if (curr_dist > max_dist) {
+        max_dist = curr_dist;
+        curr_largest_ind = std::make_pair(i, j);
+      }
+    }
+  }
+
+  return curr_largest_ind;
+}
+
+Eigen::Matrix2d Mesh_modifier::LSCM_coeff_M(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& P3) {
+  const Eigen::Vector3d p1p2 = P2 - P1;
+  const Eigen::Vector3d p1p3 = P3 - P1;
+  const Eigen::Vector3d p2p1 = -p1p2;
+  const Eigen::Vector3d p2p3 = P3 - P2;
+  const Eigen::Vector3d p3p1 = -p1p3;
+  const Eigen::Vector3d p3p2 = -p2p3;
+  const double cos_angle_p1 = p1p2.normalized().dot(p1p3.normalized());
+  const double sin_angle_p1 = sin(acos(cos_angle_p1));
+  Eigen::Matrix2d rot_M;
+  rot_M << cos_angle_p1, sin_angle_p1, -sin_angle_p1, cos_angle_p1;
+
+  const double sin_angle_p2 = sin(acos(p2p1.normalized().dot(p2p3.normalized())));
+  const double sin_angle_p3 = sin(acos(p3p1.normalized().dot(p3p2.normalized())));
+
+  return (sin_angle_p2 / sin_angle_p3) * rot_M;
+}
+
 void Mesh_modifier::parametrize_LSCM() {
+  // Get boundaries
+  const auto p = find_boundary_verts();
+  std::vector<Mesh_connectivity::Vertex_iterator> boundary_v = p.first;
+  std::vector<int> boundary_ind = p.second;
+
+  const int N = mesh().n_total_vertices();
+  const int F = mesh().n_active_faces();
+
+  // Fix the two vertices that has the largest distance
+  const std::pair<int, int> ind = find_farthest(boundary_v);
+  std::pair<int, int> fixed_verts_ind = std::make_pair(boundary_v[ind.first].index(), boundary_v[ind.second].index());
+
+  // Declare the solvables
+  Eigen::SparseMatrix<double> W(6 * F, 2 * N);
+  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 * N);
+
+  // Fixed vertices coords
+  const double u1_fixed = 0.0;
+  const double v1_fixed = 0.0;
+  const double u2_fixed = 0.0;
+  const double v2_fixed = 1.0;
+
+  // Loop through all the faces
+  for (int i=0; i<F; ++i) {
+    Mesh_connectivity::Half_edge_iterator he = mesh().face_at(i).half_edge();
+    do {
+      Mesh_connectivity::Vertex_iterator P1 = he.dest();
+      Mesh_connectivity::Vertex_iterator P2 = he.origin();
+      Mesh_connectivity::Vertex_iterator P3 = he.next().dest();
+
+      Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
+
+
+
+
+      he = he.next();
+    } while (!he.is_equal(mesh().face_at(i).half_edge()));
+  }
+
+
 
 }
 
