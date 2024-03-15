@@ -3,6 +3,7 @@
 #include <map>
 #include <minimesh/core/mohe/mesh_modifier.hpp>
 #include <minimesh/core/util/assert.hpp>
+#include <utility>
 #include <vector>
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
@@ -198,8 +199,7 @@ Mesh_modifier::compute_errors(const int k) {
 
   // If invertible, use PLU to solve, faster, else use mid-point
   if (lu.isInvertible()) {
-    const Eigen::PartialPivLU<Eigen::Matrix4d> plu(Q_hat_d);
-    v = plu.solve(b);
+    v = lu.solve(b);
   } else {
     Eigen::Vector3d tmp = (v1.xyz() + v2.xyz()) / 2;
     v << tmp.head(3), 1.0;
@@ -417,7 +417,6 @@ Mesh_modifier::simplify(int k) {
       printf("Current edge to collapse creates invalid topology. Skipping..");
       continue;
     }
-
     connect_with_neighbours(mesh(), to_pop.v, v1.index(), v2.index());
     this->update_Qs(v1);
     this->update_errors(v1);
@@ -538,13 +537,15 @@ void Mesh_modifier::parametrize_tutte() {
   }
 
   // Calculate Laplacian matrix
+  std::vector<Eigen::Triplet<double>> W_elem;
+  W_elem.reserve(N);
   Eigen::SparseMatrix<double> W(N, N);
   Eigen::VectorXd b_u = Eigen::VectorXd::Zero(N);
   Eigen::VectorXd b_v = Eigen::VectorXd::Zero(N);
   for (int i=0; i<N; ++i) {
     auto it = std::find(boundary_ind.begin(), boundary_ind.end(), i);
     if (it != boundary_ind.end()) {
-      W.insert(i, i) = 1.0;
+      W_elem.emplace_back(i, i, 1.0);
       const auto index = std::distance(boundary_ind.begin(), it);
       b_u[i] = U[index];
       b_v[i] = V[index];
@@ -568,15 +569,15 @@ void Mesh_modifier::parametrize_tutte() {
         double theta_twin = calculate_angle(vector_ij, vector_ik_twin);
 
         double unormalized_lambda = (tan(0.5 * theta_curr) + tan(0.5 * theta_twin)) / vector_ij.norm();
-        W.insert(i, jth) = unormalized_lambda;
+        W_elem.emplace_back(i, jth, unormalized_lambda);
         sum += unormalized_lambda;
       } while (ring.advance());
-      W.insert(i, i) = -sum;
+      W_elem.emplace_back(i, i, -sum);
     }
   }
 
   // Solve the two systems using a sparseLU solver
-  W.makeCompressed();
+  W.setFromTriplets(W_elem.begin(), W_elem.end());
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(W);
 
@@ -663,21 +664,16 @@ void Mesh_modifier::parametrize_LSCM() {
   std::vector<int> boundary_ind = p.second;
 
   const int N = mesh().n_total_vertices();
-  const int F = mesh().n_active_faces();
+  const int F = mesh().n_total_faces();
 
   // Fix the two vertices that has the largest distance
   const std::pair<int, int> ind = find_farthest(boundary_v);
   std::pair<int, int> fixed_verts_ind = std::make_pair(boundary_v[ind.first].index(), boundary_v[ind.second].index());
 
   // Declare the solvables
-  Eigen::SparseMatrix<double> W(6 * F, 2 * N);
-  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 * N);
-
-  // Fixed vertices coords
-  const double u1_fixed = 0.0;
-  const double v1_fixed = 0.0;
-  const double u2_fixed = 0.0;
-  const double v2_fixed = 1.0;
+  Eigen::SparseMatrix<double> W(6 * F + 4, 2 * N);
+  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 * F + 4);
+  std::vector<Eigen::Triplet<double>> W_elem;
 
   // Loop through all the faces
   for (int i=0; i<F; ++i) {
@@ -689,20 +685,44 @@ void Mesh_modifier::parametrize_LSCM() {
       Mesh_connectivity::Vertex_iterator P3 = he.next().dest();
 
       Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
-      double b_sum = 0;
-      if (P1.index() == fixed_verts_ind.first) {
-        b_sum += (rot_M(0,0) -1) * u1_fixed;
-        b_sum += ()
-      }
+      // First equation of this corner
+      W_elem.emplace_back(i*6+2*corner_count, 2*P1.index(), rot_M(0,0) - 1); // u1 * R11-1
+      W_elem.emplace_back(i*6+2*corner_count, 2*P1.index()+1, rot_M(0,1) - 1); //v1 * R12 -1
+      W_elem.emplace_back(i*6+2*corner_count, 2*P2.index(), -rot_M(0,0)); // -R11 * u2
+      W_elem.emplace_back(i*6+2*corner_count, 2*P2.index()+1, -rot_M(0,1)); // -R12 * v2
+      W_elem.emplace_back(i*6+2*corner_count, 2*P3.index(), 1.0); // u3
 
-
+      // Second equation of this corner
+      W_elem.emplace_back(i*6+2*corner_count+1, 2*P1.index(), rot_M(1,0) - 1); // u1 * R21-1
+      W_elem.emplace_back(i*6+2*corner_count+1, 2*P1.index()+1, rot_M(1,1) - 1);//v1 * R22 -1
+      W_elem.emplace_back(i*6+2*corner_count+1, 2*P2.index(), -rot_M(1,0));// -R21 * u2
+      W_elem.emplace_back(i*6+2*corner_count+1, 2*P2.index()+1, -rot_M(1,1));// -R22 * v2
+      W_elem.emplace_back(i*6+2*corner_count+1, 2*P3.index()+1, 1.0);// v3
 
       corner_count++;
       he = he.next();
     } while (!he.is_equal(mesh().face_at(i).half_edge()));
   }
 
+  // Extra two rows for the constraints on the fixed boundary vertex
+  // i.e. u_fixed = 0, v_fixed = 0;
+  W_elem.emplace_back(6 * F, 2*fixed_verts_ind.first, 1.0);
+  W_elem.emplace_back(6 * F + 1, 2*fixed_verts_ind.first+1, 1.0);
+  W_elem.emplace_back(6 * F + 2, 2*fixed_verts_ind.second, 1.0);
+  W_elem.emplace_back(6 * F + 3, 2*fixed_verts_ind.second+1, 1.0);
+  b[6 * F + 3] = 1.0;
 
+  W.setFromTriplets(W_elem.begin(), W_elem.end());
+
+  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+  solver.compute(W.transpose() * W);
+  Eigen::VectorXd uv = solver.solve(W.transpose() * b);
+
+  for (int i=0; i<N; ++i) {
+    mesh().vertex_at(i).data().xyz[0] = uv[2*i];
+    mesh().vertex_at(i).data().xyz[1] = uv[2*i+1];
+    mesh().vertex_at(i).data().xyz[2] = 0.0;
+  }
 
 }
 
