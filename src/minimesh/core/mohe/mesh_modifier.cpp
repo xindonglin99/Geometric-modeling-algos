@@ -669,11 +669,27 @@ void Mesh_modifier::parametrize_LSCM() {
   // Fix the two vertices that has the largest distance
   const std::pair<int, int> ind = find_farthest(boundary_v);
   std::pair<int, int> fixed_verts_ind = std::make_pair(boundary_v[ind.first].index(), boundary_v[ind.second].index());
+  int small_fix_ind = fixed_verts_ind.first < fixed_verts_ind.second ? fixed_verts_ind.first : fixed_verts_ind.second;
+  int large_fix_ind = fixed_verts_ind.first > fixed_verts_ind.second ? fixed_verts_ind.first : fixed_verts_ind.second;
+  std::vector<int> defrag_map(N);
+  for (int i=0; i<N; ++i) {
+    if (i < small_fix_ind) {
+      defrag_map[i] = i;
+    } else if (i > small_fix_ind && i < large_fix_ind) {
+      defrag_map[i] = i - 1;
+    } else {
+      defrag_map[i] = i-2;
+    }
+  }
+  defrag_map[small_fix_ind] = -3;
+  defrag_map[large_fix_ind] = -3;
 
   // Declare the solvables
-  Eigen::SparseMatrix<double> W(6 * F + 4, 2 * N);
-  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 * F + 4);
+  Eigen::SparseMatrix<double> W(6 * F, 2 * (N - 2));
+  Eigen::SparseMatrix<double> B(6 * F, 4);
+  Eigen::Vector4d b(0, 0, 0, 1);
   std::vector<Eigen::Triplet<double>> W_elem;
+  std::vector<Eigen::Triplet<double>> B_elem;
 
   // Loop through all the faces
   for (int i=0; i<F; ++i) {
@@ -686,42 +702,87 @@ void Mesh_modifier::parametrize_LSCM() {
 
       Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
       // First equation of this corner
-      W_elem.emplace_back(i*6+2*corner_count, 2*P1.index(), rot_M(0,0) - 1); // u1 * R11-1
-      W_elem.emplace_back(i*6+2*corner_count, 2*P1.index()+1, rot_M(0,1) - 1); //v1 * R12 -1
-      W_elem.emplace_back(i*6+2*corner_count, 2*P2.index(), -rot_M(0,0)); // -R11 * u2
-      W_elem.emplace_back(i*6+2*corner_count, 2*P2.index()+1, -rot_M(0,1)); // -R12 * v2
-      W_elem.emplace_back(i*6+2*corner_count, 2*P3.index(), 1.0); // u3
+      if (P1.index() == fixed_verts_ind.first) {
+        B_elem.emplace_back(i*6+2*corner_count, 0, -(rot_M(0,0) - 1));
+        B_elem.emplace_back(i*6+2*corner_count, 1, -(rot_M(0,1)));
+        B_elem.emplace_back(i*6+2*corner_count+1, 0, -(rot_M(1,0)));
+        B_elem.emplace_back(i*6+2*corner_count+1, 1, -(rot_M(1,1) - 1));
+      } else if (P1.index() == fixed_verts_ind.second) {
+        B_elem.emplace_back(i*6+2*corner_count, 2, -(rot_M(0,0) - 1));
+        B_elem.emplace_back(i*6+2*corner_count, 3, -(rot_M(0,1)));
+        B_elem.emplace_back(i*6+2*corner_count+1, 2, -(rot_M(1,0)));
+        B_elem.emplace_back(i*6+2*corner_count+1, 3, -(rot_M(1,1) - 1));
+      } else {
+        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P1.index()], rot_M(0,0) - 1); // u1 * R11-1
+        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P1.index()]+1, rot_M(0,1)); //v1 * R12
+        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P1.index()], rot_M(1,0)); // u1 * R21
+        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P1.index()]+1, rot_M(1,1) - 1);//v1 * R22 -1
+      }
 
-      // Second equation of this corner
-      W_elem.emplace_back(i*6+2*corner_count+1, 2*P1.index(), rot_M(1,0) - 1); // u1 * R21-1
-      W_elem.emplace_back(i*6+2*corner_count+1, 2*P1.index()+1, rot_M(1,1) - 1);//v1 * R22 -1
-      W_elem.emplace_back(i*6+2*corner_count+1, 2*P2.index(), -rot_M(1,0));// -R21 * u2
-      W_elem.emplace_back(i*6+2*corner_count+1, 2*P2.index()+1, -rot_M(1,1));// -R22 * v2
-      W_elem.emplace_back(i*6+2*corner_count+1, 2*P3.index()+1, 1.0);// v3
+      if (P2.index() == fixed_verts_ind.first) {
+        B_elem.emplace_back(i*6+2*corner_count, 0, rot_M(0,0));
+        B_elem.emplace_back(i*6+2*corner_count, 1, rot_M(0,1));
+        B_elem.emplace_back(i*6+2*corner_count+1, 0, rot_M(1,0));
+        B_elem.emplace_back(i*6+2*corner_count+1, 1, rot_M(1,1));
+      } else if (P2.index() == fixed_verts_ind.second) {
+        B_elem.emplace_back(i*6+2*corner_count, 2, rot_M(0,0));
+        B_elem.emplace_back(i*6+2*corner_count, 3, rot_M(0,1));
+        B_elem.emplace_back(i*6+2*corner_count+1, 2, rot_M(1,0));
+        B_elem.emplace_back(i*6+2*corner_count+1, 3, rot_M(1,1));
+      } else {
+        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P2.index()], -rot_M(0,0)); // -R11 * u2
+        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P2.index()]+1, -rot_M(0,1)); // -R12 * v2
+        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P2.index()], -rot_M(1,0));// -R21 * u2
+        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P2.index()]+1, -rot_M(1,1));// -R22 * v2
+      }
+
+      if (P3.index() == fixed_verts_ind.first) {
+        B_elem.emplace_back(i*6+2*corner_count, 0, -1.0);
+        B_elem.emplace_back(i*6+2*corner_count+1, 1, -1.0);
+      } else if (P3.index() == fixed_verts_ind.second) {
+        B_elem.emplace_back(i*6+2*corner_count, 2, -1.0);
+        B_elem.emplace_back(i*6+2*corner_count+1, 3, -1.0);
+      } else {
+        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P3.index()], 1.0); // u3
+        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P3.index()]+1, 1.0);// v3
+      }
 
       corner_count++;
       he = he.next();
     } while (!he.is_equal(mesh().face_at(i).half_edge()));
   }
 
-  // Extra two rows for the constraints on the fixed boundary vertex
-  // i.e. u_fixed = 0, v_fixed = 0;
-  W_elem.emplace_back(6 * F, 2*fixed_verts_ind.first, 1.0);
-  W_elem.emplace_back(6 * F + 1, 2*fixed_verts_ind.first+1, 1.0);
-  W_elem.emplace_back(6 * F + 2, 2*fixed_verts_ind.second, 1.0);
-  W_elem.emplace_back(6 * F + 3, 2*fixed_verts_ind.second+1, 1.0);
-  b[6 * F + 3] = 1.0;
+//  // Extra two rows for the constraints on the fixed boundary vertex
+//  // i.e. u_fixed = 0, v_fixed = 0;
+//  W_elem.emplace_back(6 * F, 2*fixed_verts_ind.first, 1.0);
+//  W_elem.emplace_back(6 * F + 1, 2*fixed_verts_ind.first+1, 1.0);
+//  W_elem.emplace_back(6 * F + 2, 2*fixed_verts_ind.second, 1.0);
+//  W_elem.emplace_back(6 * F + 3, 2*fixed_verts_ind.second+1, 1.0);
+//  b[6 * F + 3] = 1.0;
 
   W.setFromTriplets(W_elem.begin(), W_elem.end());
+  B.setFromTriplets(B_elem.begin(), B_elem.end());
 
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(W.transpose() * W);
-  Eigen::VectorXd uv = solver.solve(W.transpose() * b);
+  Eigen::VectorXd uv = solver.solve(W.transpose() * B * b);
+
 
   for (int i=0; i<N; ++i) {
-    mesh().vertex_at(i).data().xyz[0] = uv[2*i];
-    mesh().vertex_at(i).data().xyz[1] = uv[2*i+1];
-    mesh().vertex_at(i).data().xyz[2] = 0.0;
+    if (i == small_fix_ind) {
+      mesh().vertex_at(i).data().xyz[0] = 0;
+      mesh().vertex_at(i).data().xyz[1] = 0;
+      mesh().vertex_at(i).data().xyz[2] = 0.0;
+    } else if (i == large_fix_ind) {
+      mesh().vertex_at(i).data().xyz[0] = 0;
+      mesh().vertex_at(i).data().xyz[1] = 1.0;
+      mesh().vertex_at(i).data().xyz[2] = 0.0;
+    } else {
+      mesh().vertex_at(i).data().xyz[0] = uv[2*defrag_map[i]];
+      mesh().vertex_at(i).data().xyz[1] = uv[2*defrag_map[i]+1];
+      mesh().vertex_at(i).data().xyz[2] = 0.0;
+    }
+
   }
 
 }
