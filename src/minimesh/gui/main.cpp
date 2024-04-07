@@ -43,6 +43,8 @@ Eigen::Matrix3Xd displaced_vertex_positions;
 bool is_visualizing = false;
 //
 int param_id = 0;
+//
+int is_deforming = 0;
 }
 
 
@@ -96,8 +98,10 @@ mouse_pushed(int button, int state, int x, int y) {
     int clicked_on_vertex;
     bool did_user_click;
     globalvars::viewer.get_and_clear_vertex_selection(did_user_click, clicked_on_vertex);
-    if (did_user_click)
+    if (did_user_click) {
       printf("User just clicked on vertex %d \n", clicked_on_vertex);
+      globalvars::modi.set_anchor_vertex(clicked_on_vertex);
+    }
   }
 
   if (should_redraw)
@@ -142,6 +146,25 @@ mouse_moved(int x, int y) {
 
   if (should_redraw)
     glutPostRedisplay();
+}
+
+void
+show_spheres_pressed(int) {
+  //
+  // Sample of using Mesh_viewer for MESH DEFORMATION ASSIGNMENT
+  // Here I color the vertices (draw spheres on them)
+  // Note that if you call rebuild, you have to redraw everything.
+  //
+  Eigen::VectorXi sphere_indices(3);
+  sphere_indices << 0, 1, 2;
+  Eigen::Matrix4Xf sphere_colors(4, 3);
+  sphere_colors.col(0) << 1, 1, 0, 1;
+  sphere_colors.col(1) << 0, 1, 1, 1;
+  sphere_colors.col(2) << 0, 0, 1, 1;
+
+  globalvars::viewer.get_mesh_buffer().set_colorful_spheres(sphere_indices, sphere_colors);
+
+  glutPostRedisplay();
 }
 
 void
@@ -195,31 +218,6 @@ simplify_pressed(int) {
 }
 
 void
-show_spheres_pressed(int) {
-  //
-  // Sample of using Mesh_viewer for MESH DEFORMATION ASSIGNMENT
-  // Here I color the vertices (draw spheres on them)
-  // Note that if you call rebuild, you have to redraw everything.
-  //
-  Eigen::VectorXi sphere_indices(3);
-  sphere_indices << 0, 1, 2;
-  Eigen::Matrix4Xf sphere_colors(4, 3);
-  sphere_colors.col(0) << 1, 1, 0, 1;
-  sphere_colors.col(1) << 0, 1, 1, 1;
-  sphere_colors.col(2) << 0, 0, 1, 1;
-
-  globalvars::viewer.get_mesh_buffer().set_colorful_spheres(sphere_indices, sphere_colors);
-
-  glutPostRedisplay();
-}
-
-void
-print_param_id(int)
-{
-  printf("The current ID is %d. \n", globalvars::param_id);
-}
-
-void
 parametrize(int)
 {
   printf("Parametrize the current mesh.\n");
@@ -233,6 +231,8 @@ parametrize(int)
   globalvars::mesh.compute_defragmention_maps(defrag);
   globalvars::viewer.get_mesh_buffer().rebuild(globalvars::mesh, defrag);
   glutPostRedisplay();
+
+  mohe::Mesh_io(globalvars::mesh).write_obj("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open/man_out.obj");
 }
 
 }
@@ -249,8 +249,8 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open");
-    mohe::Mesh_io(globalvars::mesh).read_auto("camel_head.obj");
+    foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh");
+    mohe::Mesh_io(globalvars::mesh).read_auto("mannequin.obj");
   }
   else // otherwise use the address specified in the command line
   {
@@ -357,9 +357,7 @@ main(int argc, char * argv[])
   GLUI_Panel * panel_parametrization = globalvars::glui->add_panel("Parametrization Methods");
   GLUI_RadioGroup* parametrization_group = globalvars::glui->add_radiogroup_to_panel(
       panel_parametrization,
-      &globalvars::param_id,
-      -1,
-      freeglutcallback::print_param_id);
+      &globalvars::param_id);
   globalvars::glui->add_radiobutton_to_group(parametrization_group, "Harmonic");
   globalvars::glui->add_radiobutton_to_group(parametrization_group, "LSCM");
   globalvars::glui->add_button("Parametrization", -1, freeglutcallback::parametrize);
@@ -369,6 +367,13 @@ main(int argc, char * argv[])
   // Add show spheres button to demo how to draw spheres on top of the vertices
   //
   globalvars::glui->add_button("Demo Showing Spheres", -1, freeglutcallback::show_spheres_pressed);
+
+
+  //
+  // Add the deformation checkbox
+  //
+  GLUI_Panel * panel_deform = globalvars::glui->add_panel("Deformation");
+  globalvars::glui->add_checkbox_to_panel(panel_deform, "Deform", &globalvars::is_deforming);
 
   //
   // Save the initial vertex positions

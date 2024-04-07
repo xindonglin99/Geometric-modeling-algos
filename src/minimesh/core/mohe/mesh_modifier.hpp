@@ -60,9 +60,14 @@ namespace minimesh {
             // Parametrize with LSCM criteria
             void parametrize_LSCM();
 
+            // Set anchor vertex
+            void set_anchor_vertex(int id);
+
         private:
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
+
+            int _anchor_id = Mesh_connectivity::invalid_index;
 
             struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;
@@ -76,7 +81,7 @@ namespace minimesh {
 
             std::priority_queue<Edge_distance, std::vector<Edge_distance>, cmp> errors;
 
-            std::vector<Eigen::Matrix4d> Qs;
+            std::vector<Eigen::Matrix4d> _Qs;
 
             static std::tuple<std::vector<double>, std::vector<int>, std::unordered_map<int, int>, std::unordered_map<int, int>>
             generate_coords_traingles(

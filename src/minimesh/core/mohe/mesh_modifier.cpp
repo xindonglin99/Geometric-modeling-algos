@@ -138,7 +138,7 @@ Mesh_modifier::compute_old_coeff(int n) {
 
 void Mesh_modifier::quadrics() {
   for (int i = 0; i < mesh().n_active_vertices(); ++i) {
-    this->Qs.push_back(this->compute_Qs(i));
+    this->_Qs.push_back(this->compute_Qs(i));
   }
   // Keep a O(1) HashSet for visited half-edge's twins
   std::unordered_set<int> visited;
@@ -183,7 +183,7 @@ Mesh_modifier::compute_errors(const int k) {
   Mesh_connectivity::Vertex_iterator v2 = mesh().half_edge_at(k).dest();
 
   // Calculate the Q hat for the two vertices
-  Eigen::Matrix4d Q_hat = this->Qs[v1.index()] + this->Qs[v2.index()];
+  Eigen::Matrix4d Q_hat = this->_Qs[v1.index()] + this->_Qs[v2.index()];
 
   // Set the linear system
   Eigen::Matrix4d Q_hat_d = Q_hat;
@@ -214,7 +214,7 @@ Mesh_modifier::compute_errors(const int k) {
 // Should pass in v1, as we are deactivating v2
 void
 Mesh_modifier::update_Qs(Mesh_connectivity::Vertex_iterator new_v) {
-  this->Qs[new_v.index()] = this->compute_Qs(new_v.index());
+  this->_Qs[new_v.index()] = this->compute_Qs(new_v.index());
 }
 
 void Mesh_modifier::update_errors(Mesh_connectivity::Vertex_iterator new_v) {
@@ -702,12 +702,12 @@ void Mesh_modifier::parametrize_LSCM() {
 
       Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
       // First equation of this corner
-      if (P1.index() == fixed_verts_ind.first) {
+      if (P1.index() == small_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 0, -(rot_M(0,0) - 1));
         B_elem.emplace_back(i*6+2*corner_count, 1, -(rot_M(0,1)));
         B_elem.emplace_back(i*6+2*corner_count+1, 0, -(rot_M(1,0)));
         B_elem.emplace_back(i*6+2*corner_count+1, 1, -(rot_M(1,1) - 1));
-      } else if (P1.index() == fixed_verts_ind.second) {
+      } else if (P1.index() == large_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 2, -(rot_M(0,0) - 1));
         B_elem.emplace_back(i*6+2*corner_count, 3, -(rot_M(0,1)));
         B_elem.emplace_back(i*6+2*corner_count+1, 2, -(rot_M(1,0)));
@@ -719,12 +719,12 @@ void Mesh_modifier::parametrize_LSCM() {
         W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P1.index()]+1, rot_M(1,1) - 1);//v1 * R22 -1
       }
 
-      if (P2.index() == fixed_verts_ind.first) {
+      if (P2.index() == small_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 0, rot_M(0,0));
         B_elem.emplace_back(i*6+2*corner_count, 1, rot_M(0,1));
         B_elem.emplace_back(i*6+2*corner_count+1, 0, rot_M(1,0));
         B_elem.emplace_back(i*6+2*corner_count+1, 1, rot_M(1,1));
-      } else if (P2.index() == fixed_verts_ind.second) {
+      } else if (P2.index() == large_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 2, rot_M(0,0));
         B_elem.emplace_back(i*6+2*corner_count, 3, rot_M(0,1));
         B_elem.emplace_back(i*6+2*corner_count+1, 2, rot_M(1,0));
@@ -736,10 +736,10 @@ void Mesh_modifier::parametrize_LSCM() {
         W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P2.index()]+1, -rot_M(1,1));// -R22 * v2
       }
 
-      if (P3.index() == fixed_verts_ind.first) {
+      if (P3.index() == small_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 0, -1.0);
         B_elem.emplace_back(i*6+2*corner_count+1, 1, -1.0);
-      } else if (P3.index() == fixed_verts_ind.second) {
+      } else if (P3.index() == large_fix_ind) {
         B_elem.emplace_back(i*6+2*corner_count, 2, -1.0);
         B_elem.emplace_back(i*6+2*corner_count+1, 3, -1.0);
       } else {
@@ -771,7 +771,7 @@ void Mesh_modifier::parametrize_LSCM() {
   for (int i=0; i<N; ++i) {
     if (i == small_fix_ind) {
       mesh().vertex_at(i).data().xyz[0] = 0;
-      mesh().vertex_at(i).data().xyz[1] = 0;
+      mesh().vertex_at(i).data().xyz[1] = 0.0;
       mesh().vertex_at(i).data().xyz[2] = 0.0;
     } else if (i == large_fix_ind) {
       mesh().vertex_at(i).data().xyz[0] = 0;
@@ -805,6 +805,9 @@ std::vector<int> Mesh_modifier::get_top_k_errors_edge_vertices(int k) {
     count--;
   }
   return results;
+}
+void Mesh_modifier::set_anchor_vertex(int id) {
+  this->_anchor_id = id;
 }
 } // end of mohe
 } // end of minimesh
