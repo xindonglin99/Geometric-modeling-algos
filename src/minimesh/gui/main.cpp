@@ -136,6 +136,10 @@ mouse_moved(int x, int y) {
       // globalvars::mesh.compute_defragmention_maps(defrag);
       // displaced_vertex_positions.col(defrag.old2new_vertex[j]) += pull_amount.cast<double>();
 
+      if (globalvars::is_deforming) {
+        globalvars::displaced_vertex_positions = globalvars::modi.deform(pulled_vert, globalvars::displaced_vertex_positions.col(pulled_vert));
+      }
+
       // update positions (only the viewer)
       globalvars::viewer.get_mesh_buffer().set_vertex_positions(globalvars::displaced_vertex_positions.cast<float>());
 
@@ -232,7 +236,7 @@ parametrize(int)
   globalvars::viewer.get_mesh_buffer().rebuild(globalvars::mesh, defrag);
   glutPostRedisplay();
 
-  mohe::Mesh_io(globalvars::mesh).write_obj("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open/man_out.obj");
+//  mohe::Mesh_io(globalvars::mesh).write_obj("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open/man_out.obj");
 }
 
 }
@@ -250,7 +254,7 @@ main(int argc, char * argv[])
   if(argc == 1)
   {
     foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh");
-    mohe::Mesh_io(globalvars::mesh).read_auto("mannequin.obj");
+    mohe::Mesh_io(globalvars::mesh).read_auto("woody-lo.obj");
   }
   else // otherwise use the address specified in the command line
   {
@@ -259,6 +263,10 @@ main(int argc, char * argv[])
 
   // Do simplify computation
   globalvars::modi.quadrics();
+
+  // Calculate weights and initial Laplacian
+  globalvars::modi.build_weights();
+  globalvars::modi.build_laplacian();
 
   // Initialize GLUT window
   glutInit(&argc, argv);

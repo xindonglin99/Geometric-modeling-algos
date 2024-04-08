@@ -9,6 +9,7 @@
 //
 
 #include <Eigen/core>
+#include <Eigen/Sparse>
 #include <minimesh/core/mohe/mesh_connectivity.hpp>
 #include <queue>
 #include <unordered_map>
@@ -63,11 +64,23 @@ namespace minimesh {
             // Set anchor vertex
             void set_anchor_vertex(int id);
 
+            // Build original Laplacian Matrix
+            void build_laplacian();
+
+            // Build the cotangent weight vector
+            void build_weights();
+
+            // Calculate deformed vertex positions
+            Eigen::Matrix3Xd deform(int deform_id, Eigen::Vector3d pos);
+
         private:
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
 
             int _anchor_id = Mesh_connectivity::invalid_index;
+
+            Eigen::SparseMatrix<double> _laplacian;
+            std::vector<double> _cot_weights;
 
             struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;
@@ -81,7 +94,7 @@ namespace minimesh {
 
             std::priority_queue<Edge_distance, std::vector<Edge_distance>, cmp> errors;
 
-            std::vector<Eigen::Matrix4d> _Qs;
+            std::vector<Eigen::Matrix4d> _q;
 
             static std::tuple<std::vector<double>, std::vector<int>, std::unordered_map<int, int>, std::unordered_map<int, int>>
             generate_coords_traingles(
@@ -125,6 +138,12 @@ namespace minimesh {
 
             // Return a scaled rotation matrix that taks P1P2 to P1P3
             static Eigen::Matrix2d LSCM_coeff_M(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& P3);
+
+            // Calculate cotangent weights for an edge
+            double cot(Mesh_connectivity::Half_edge_iterator he);
+
+            // Update the rotation matrices in the deformation
+            void update_rotations(std::vector<Eigen::Matrix3d> &m_rots, Eigen::Matrix3Xd &deformed_pos);
         };
     } // end of mohe
 } // end of minimesh

@@ -5,7 +5,6 @@
 #include <minimesh/core/util/assert.hpp>
 #include <utility>
 #include <vector>
-#include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <unordered_set>
@@ -138,7 +137,7 @@ Mesh_modifier::compute_old_coeff(int n) {
 
 void Mesh_modifier::quadrics() {
   for (int i = 0; i < mesh().n_active_vertices(); ++i) {
-    this->_Qs.push_back(this->compute_Qs(i));
+    this->_q.push_back(this->compute_Qs(i));
   }
   // Keep a O(1) HashSet for visited half-edge's twins
   std::unordered_set<int> visited;
@@ -183,7 +182,7 @@ Mesh_modifier::compute_errors(const int k) {
   Mesh_connectivity::Vertex_iterator v2 = mesh().half_edge_at(k).dest();
 
   // Calculate the Q hat for the two vertices
-  Eigen::Matrix4d Q_hat = this->_Qs[v1.index()] + this->_Qs[v2.index()];
+  Eigen::Matrix4d Q_hat = this->_q[v1.index()] + this->_q[v2.index()];
 
   // Set the linear system
   Eigen::Matrix4d Q_hat_d = Q_hat;
@@ -214,7 +213,7 @@ Mesh_modifier::compute_errors(const int k) {
 // Should pass in v1, as we are deactivating v2
 void
 Mesh_modifier::update_Qs(Mesh_connectivity::Vertex_iterator new_v) {
-  this->_Qs[new_v.index()] = this->compute_Qs(new_v.index());
+  this->_q[new_v.index()] = this->compute_Qs(new_v.index());
 }
 
 void Mesh_modifier::update_errors(Mesh_connectivity::Vertex_iterator new_v) {
@@ -806,8 +805,171 @@ std::vector<int> Mesh_modifier::get_top_k_errors_edge_vertices(int k) {
   }
   return results;
 }
+
 void Mesh_modifier::set_anchor_vertex(int id) {
   this->_anchor_id = id;
+}
+
+Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, Eigen::Vector3d pos) {
+  force_assert(_anchor_id != -1 && _anchor_id != -3);
+
+  std::cout << "Pos:" << pos << std::endl;
+
+  int N = mesh().n_total_vertices();
+  Eigen::Matrix3Xd pos_deformed(3, N);
+  for (int i=0;i<N;++i) {
+    pos_deformed.col(i) = mesh().vertex_at(i).xyz();
+  }
+
+  // Set the number of iterations
+  int num_iter = 3;
+
+  // Initialize all Rotations to be identity
+  std::vector<Eigen::Matrix3d> m_rotation;
+  m_rotation.reserve(N);
+  for (int i=0; i<N; i++) {
+    Eigen::Matrix3d id_rotation = Eigen::Matrix3d::Identity();
+    m_rotation.push_back(id_rotation);
+  }
+
+
+  // Update constraints
+  Eigen::SparseMatrix<double> L(_laplacian);
+  L.row(deform_id) *= 0;
+  L.row(_anchor_id) *= 0;
+  L.coeffRef(deform_id, deform_id) = 1.0;
+  L.coeffRef(_anchor_id, _anchor_id) = 1.0;
+
+  int itr = 0;
+  while (itr < num_iter) {
+    update_rotations(m_rotation, pos_deformed);
+
+    // Update the Bs
+    Eigen::MatrixX3d B(N,3);
+
+    for (int i=0; i<N; ++i) {
+      Eigen::Vector3d sum(0.0f, 0.0f, 0.0f);
+
+      if (i == _anchor_id) {
+        sum = mesh().vertex_at(_anchor_id).xyz();
+      } else if (i == deform_id) {
+        sum = pos;
+      } else {
+        Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+        do {
+          double w_ij = _cot_weights[ring.half_edge().index()];
+          sum += w_ij * 0.5
+              * (m_rotation[ring.half_edge().dest().index()] + m_rotation[ring.half_edge().origin().index()])
+              * (ring.half_edge().dest().xyz() - ring.half_edge().origin().xyz());
+        } while (ring.advance());
+      }
+
+      B.row(i) = sum;
+    }
+
+    // Solve for P_prime
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    solver.compute(L);
+    pos_deformed = solver.solve(B).transpose();
+
+    itr++;
+  }
+  return pos_deformed;
+}
+
+double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
+  double result = 0.0;
+//  bool alpha_exist = false;
+//  bool beta_exist = false;
+
+  if (!he.face().is_equal(mesh().hole())) {
+    Eigen::Vector3d CA = he.origin().xyz() - he.next().dest().xyz();
+    Eigen::Vector3d CB = he.dest().xyz() - he.next().dest().xyz();
+
+    result +=  CA.dot(CB) / CA.cross(CB).norm();;
+//    alpha_exist = true;
+  }
+
+  Mesh_connectivity::Half_edge_iterator twin = he.twin();
+
+  if (!twin.face().is_equal(mesh().hole())) {
+    Eigen::Vector3d DB = twin.origin().xyz() - twin.next().dest().xyz();
+    Eigen::Vector3d DA = twin.dest().xyz() - twin.next().dest().xyz();
+
+    result += DB.dot(DA) / DB.cross(DA).norm();
+//    beta_exist = true;
+  }
+
+//  if (alpha_exist && beta_exist)
+  result *= 0.5;
+
+  return result;
+}
+
+void Mesh_modifier::build_weights() {
+  int M = mesh().n_total_half_edges();
+  _cot_weights.reserve(M);
+  for (int i=0; i<M; ++i) {
+    if (mesh().half_edge_at(i).twin().index() < i) {
+      _cot_weights.push_back(_cot_weights[mesh().half_edge_at(i).twin().index()]);
+    }
+    _cot_weights.push_back(cot(mesh().half_edge_at(i)));
+  }
+}
+
+void Mesh_modifier::build_laplacian() {
+  int N = mesh().n_total_vertices();
+
+  _laplacian = Eigen::SparseMatrix<double>(N,N);
+  std::vector<Eigen::Triplet<double>> L_elem;
+
+  for (int i=0; i<N; ++i) {
+    Mesh_connectivity::Vertex_ring_iterator v_ring = mesh().vertex_ring_at(i);
+    double ii_weight = 0.0;
+    do {
+      Mesh_connectivity::Vertex_iterator v_next = v_ring.half_edge().origin();
+      L_elem.emplace_back(i, v_next.index(), -_cot_weights[v_ring.half_edge().index()]);
+      ii_weight += _cot_weights[v_ring.half_edge().index()];
+    } while (v_ring.advance());
+
+    L_elem.emplace_back(i, i, ii_weight);
+  }
+
+  _laplacian.setFromTriplets(L_elem.begin(), L_elem.end());
+  _laplacian.makeCompressed();
+}
+
+void Mesh_modifier::update_rotations(std::vector<Eigen::Matrix3d> &m_rots, Eigen::Matrix3Xd &deformed_pos) {
+  for (int i=0; i<mesh().n_total_vertices(); ++i) {
+    std::vector<Mesh_connectivity::Vertex_iterator> neighbours;
+    Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+    do {
+      neighbours.push_back(ring.half_edge().origin());
+    } while (ring.advance());
+
+    int num_neighbour = (int) neighbours.size();
+    Eigen::MatrixXd PPrime = Eigen::MatrixXd::Zero(3, num_neighbour);
+    Eigen::MatrixXd P = Eigen::MatrixXd::Zero(3, num_neighbour);
+    Eigen::MatrixXd D = Eigen::MatrixXd::Zero(num_neighbour, num_neighbour);
+
+    for (int j=0; j<num_neighbour; ++j) {
+      PPrime.col(j) = deformed_pos.col(i) - deformed_pos.col(neighbours[j].index());
+      P.col(j) = mesh().vertex_at(i).xyz() - neighbours[j].xyz();
+      D(j, j) = _cot_weights[get_halfedge_between_vertices(i, neighbours[j].index())];
+    }
+
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(P * D * P.transpose(), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::MatrixXd rotation = svd.matrixV() * svd.matrixU().transpose();
+
+    if (rotation.determinant() < 0) {
+      Eigen::MatrixXd svd_u = svd.matrixU();
+      svd_u.rightCols(1) = svd_u.rightCols(1) * -1;
+      rotation = svd.matrixV() * svd_u.transpose();
+    }
+
+    assert(rotation.determinant() > 0);
+    m_rots[i] = rotation;
+  }
 }
 } // end of mohe
 } // end of minimesh
