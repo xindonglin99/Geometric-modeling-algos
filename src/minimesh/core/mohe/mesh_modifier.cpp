@@ -810,10 +810,8 @@ void Mesh_modifier::set_anchor_vertex(int id) {
   this->_anchor_id = id;
 }
 
-Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, Eigen::Vector3d pos) {
+Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos) {
   force_assert(_anchor_id != -1 && _anchor_id != -3);
-
-  std::cout << "Pos:" << pos << std::endl;
 
   int N = mesh().n_total_vertices();
   Eigen::Matrix3Xd pos_deformed(3, N);
@@ -879,15 +877,12 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, Eigen::Vector3d pos) {
 
 double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
   double result = 0.0;
-//  bool alpha_exist = false;
-//  bool beta_exist = false;
 
   if (!he.face().is_equal(mesh().hole())) {
     Eigen::Vector3d CA = he.origin().xyz() - he.next().dest().xyz();
     Eigen::Vector3d CB = he.dest().xyz() - he.next().dest().xyz();
 
     result +=  CA.dot(CB) / CA.cross(CB).norm();;
-//    alpha_exist = true;
   }
 
   Mesh_connectivity::Half_edge_iterator twin = he.twin();
@@ -897,10 +892,8 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
     Eigen::Vector3d DA = twin.dest().xyz() - twin.next().dest().xyz();
 
     result += DB.dot(DA) / DB.cross(DA).norm();
-//    beta_exist = true;
   }
 
-//  if (alpha_exist && beta_exist)
   result *= 0.5;
 
   return result;

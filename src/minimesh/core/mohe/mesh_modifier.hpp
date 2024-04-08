@@ -71,7 +71,7 @@ namespace minimesh {
             void build_weights();
 
             // Calculate deformed vertex positions
-            Eigen::Matrix3Xd deform(int deform_id, Eigen::Vector3d pos);
+            Eigen::Matrix3Xd deform(int deform_id, const Eigen::Vector3d& pos);
 
         private:
             // pointer to the mesh that we are working on.
