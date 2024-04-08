@@ -9,7 +9,7 @@ namespace minimesh
 namespace mohe
 {
 class Mesh_connectivity;
-class Mesh_connectivity_defragmentation_maps;
+struct Mesh_connectivity_defragmentation_maps;
 }
 
 // An interim between a mesh and the viewer. To view any mesh, it should be converted to

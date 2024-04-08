@@ -820,7 +820,7 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
   }
 
   // Set the number of iterations
-  int num_iter = 2;
+  int num_iter = 4;
 
   // Initialize all Rotations to be identity
   std::vector<Eigen::Matrix3d> m_rotation;
@@ -839,6 +839,10 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
   L.coeffRef(_anchor_id, _anchor_id) = 1.0;
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(L);
+  if(solver.info()!=Eigen::Success) {
+    std::cout<<"Decomposition failed!"<<std::endl;
+    return pos_deformed;
+  }
 
   int itr = 0;
   while (itr < num_iter) {
@@ -858,6 +862,7 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
         Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
         do {
           double w_ij = _cot_weights[ring.half_edge().index()];
+//          double w_ij = 1.0;
           sum += w_ij * 0.5
               * (m_rotation[ring.half_edge().dest().index()] + m_rotation[ring.half_edge().origin().index()])
               * (ring.half_edge().dest().xyz() - ring.half_edge().origin().xyz());
@@ -882,7 +887,7 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
     Eigen::Vector3d CA = he.origin().xyz() - he.next().dest().xyz();
     Eigen::Vector3d CB = he.dest().xyz() - he.next().dest().xyz();
 
-    result +=  CA.dot(CB) / CA.cross(CB).norm();;
+    result +=  CA.dot(CB) / CA.cross(CB).norm();
   }
 
   Mesh_connectivity::Half_edge_iterator twin = he.twin();
