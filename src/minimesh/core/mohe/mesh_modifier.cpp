@@ -820,7 +820,7 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
   }
 
   // Set the number of iterations
-  int num_iter = 3;
+  int num_iter = 2;
 
   // Initialize all Rotations to be identity
   std::vector<Eigen::Matrix3d> m_rotation;
@@ -837,6 +837,8 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
   L.row(_anchor_id) *= 0;
   L.coeffRef(deform_id, deform_id) = 1.0;
   L.coeffRef(_anchor_id, _anchor_id) = 1.0;
+  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+  solver.compute(L);
 
   int itr = 0;
   while (itr < num_iter) {
@@ -866,8 +868,6 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos
     }
 
     // Solve for P_prime
-    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-    solver.compute(L);
     pos_deformed = solver.solve(B).transpose();
 
     itr++;

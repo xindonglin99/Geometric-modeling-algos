@@ -254,7 +254,7 @@ main(int argc, char * argv[])
   if(argc == 1)
   {
     foldertools::makeandsetdir("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh");
-    mohe::Mesh_io(globalvars::mesh).read_auto("woody-lo.obj");
+    mohe::Mesh_io(globalvars::mesh).read_auto("woody-hi.obj");
   }
   else // otherwise use the address specified in the command line
   {
