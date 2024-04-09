@@ -77,8 +77,14 @@ namespace minimesh {
             // pointer to the mesh that we are working on.
             Mesh_connectivity &_m;
 
-            int _anchor_id = Mesh_connectivity::invalid_index;
+            int _anchor_id = -1;
+            int _deform_id = -1;
+
+            Eigen::SparseLU<Eigen::SparseMatrix<double>> _m_solver;
+            Eigen::SparseMatrix<double> _m_L;
             std::vector<double> _cot_weights;
+            std::unordered_map<int, int> _free_to_original;
+            std::unordered_map<int, int> _original_to_free;
 
             struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;

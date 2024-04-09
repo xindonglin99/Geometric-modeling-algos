@@ -808,11 +808,20 @@ std::vector<int> Mesh_modifier::get_top_k_errors_edge_vertices(int k) {
 }
 
 void Mesh_modifier::set_anchor_vertex(int id) {
-  this->_anchor_id = id;
+  if (_anchor_id != id && _anchor_id != -1 && _deform_id != -1) {
+    _anchor_id = id;
+    build_L();
+  } else {
+    _anchor_id = id;
+  }
 }
 
 Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d &pos) {
-//  force_assert(_anchor_id != -1 && _anchor_id != -3);
+  force_assert(_anchor_id != -1 && deform_id != -1);
+  if (deform_id != _deform_id) {
+    _deform_id = deform_id;
+    build_L();
+  }
   int N = mesh().n_total_vertices();
   Eigen::Matrix3Xd pos_deformed(3, N);
   Eigen::Matrix3Xd free_pos_deformed(3, N-2);
@@ -825,57 +834,15 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d &pos
     m_rotation.push_back(id_rotation);
   }
 
-  // free index;
-  int free_index = 0;
-  // For building the index maps
-  std::unordered_map<int, int> free_to_original;
-  std::unordered_map<int, int> original_to_free;
-  for (int i=0; i<N; ++i) {
-    if (i != _anchor_id && i != deform_id) {
-      free_to_original[free_index] = i;
-      original_to_free[i] = free_index;
-      free_index++;
-    }
-  }
-
-  // Building the L matrix and the solver
-  Eigen::SparseMatrix<double> L(N, N-2);
-  std::vector<Eigen::Triplet<double>> L_elem;
-  L_elem.reserve(N * (N-2));
-  for (int i = 0; i < N; ++i) {
-    Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
-    double L_sum = 0.0;
-    do {
-      int neighbour_id = ring.half_edge().origin().index();
-      double w_ij = _cot_weights[ring.half_edge().index()];
-      L_sum += w_ij;
-
-      // handle neighbour case
-      if (neighbour_id != _anchor_id && neighbour_id != deform_id) {
-        L_elem.emplace_back(i, original_to_free[neighbour_id], -w_ij);
-      }
-    } while (ring.advance());
-    // handle ith vertex case
-    if (i != _anchor_id && i != deform_id) {
-      L_elem.emplace_back(i, original_to_free[i], L_sum);
-    }
-  }
-
-  L.setFromTriplets(L_elem.begin(), L_elem.end());
-  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-  solver.compute(L.transpose() * L);
-  if (solver.info() != Eigen::Success) {
-    std::cout << "Decomposition failed!" << std::endl;
-    return pos_deformed;
-  }
-
   // Set the number of iterations
   int num_iter = 4;
   int itr = 0;
   while (itr < num_iter) {
     if (itr > 0) update_rotations(m_rotation, pos_deformed);
 
+    //
     // Update the B
+    //
     Eigen::MatrixX3d B(N, 3);
     for (int i = 0; i < N; ++i) {
       Eigen::Vector3d sum(0.0f, 0.0f, 0.0f);
@@ -907,13 +874,16 @@ Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d &pos
 
       B.row(i) = sum;
     }
+    //
+    // End: Update B
+    //
 
     // Solve for P_prime
-    free_pos_deformed = solver.solve(L.transpose() * B).transpose();
+    free_pos_deformed = _m_solver.solve(_m_L.transpose() * B).transpose();
 
     // Update deformed in non-fragmented way
     for (int i=0; i<N-2; ++i) {
-      pos_deformed.col(free_to_original[i]) = free_pos_deformed.col(i);
+      pos_deformed.col(_free_to_original[i]) = free_pos_deformed.col(i);
     }
     pos_deformed.col(_anchor_id) = mesh().vertex_at(_anchor_id).xyz();
     pos_deformed.col(deform_id) = pos;
@@ -957,7 +927,48 @@ void Mesh_modifier::build_weights() {
 }
 
 void Mesh_modifier::build_L() {
+  int N = mesh().n_total_vertices();
 
+  // Build the index map
+  int free_index = 0;
+  _free_to_original.clear();
+  _original_to_free.clear();
+  for (int i=0; i<N; ++i) {
+    if (i != _anchor_id && i != _deform_id) {
+      _free_to_original[free_index] = i;
+      _original_to_free[i] = free_index;
+      free_index++;
+    }
+  }
+
+  // Build the L matrix
+  std::vector<Eigen::Triplet<double>> L_elem;
+  L_elem.reserve(N * (N-2));
+  for (int i = 0; i < N; ++i) {
+
+    Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+    double L_sum = 0.0;
+    do {
+      int neighbour_id = ring.half_edge().origin().index();
+      double w_ij = _cot_weights[ring.half_edge().index()];
+      L_sum += w_ij;
+
+      // handle neighbour case
+      if (neighbour_id != _anchor_id && neighbour_id != _deform_id) {
+        L_elem.emplace_back(i, _original_to_free[neighbour_id], -w_ij);
+      }
+    } while (ring.advance());
+    // handle ith vertex case
+    if (i != _anchor_id && i != _deform_id) {
+      L_elem.emplace_back(i, _original_to_free[i], L_sum);
+    }
+  }
+  _m_L = Eigen::SparseMatrix<double>(N, N-2);
+  _m_L.setFromTriplets(L_elem.begin(), L_elem.end());
+  _m_solver.compute(_m_L.transpose() * _m_L);
+  if (_m_solver.info() != Eigen::Success) {
+    std::cout << "Decomposition failed!" << std::endl;
+  }
 }
 
 void Mesh_modifier::update_rotations(std::vector<Eigen::Matrix3d> &m_rots, Eigen::Matrix3Xd &deformed_pos) {
