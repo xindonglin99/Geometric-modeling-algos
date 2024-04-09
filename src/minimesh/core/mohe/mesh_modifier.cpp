@@ -887,7 +887,7 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
     Eigen::Vector3d CA = he.origin().xyz() - he.next().dest().xyz();
     Eigen::Vector3d CB = he.dest().xyz() - he.next().dest().xyz();
 
-    result +=  CA.dot(CB) / CA.cross(CB).norm();
+    result +=  (CA.dot(CB)) / ((CA.cross(CB)).norm());
   }
 
   Mesh_connectivity::Half_edge_iterator twin = he.twin();
@@ -896,7 +896,7 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
     Eigen::Vector3d DB = twin.origin().xyz() - twin.next().dest().xyz();
     Eigen::Vector3d DA = twin.dest().xyz() - twin.next().dest().xyz();
 
-    result += DB.dot(DA) / DB.cross(DA).norm();
+    result += (DB.dot(DA)) / ((DB.cross(DA)).norm());
   }
 
   result *= 0.5;
