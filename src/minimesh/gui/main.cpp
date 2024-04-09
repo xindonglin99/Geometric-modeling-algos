@@ -253,8 +253,8 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524/mesh");
-    mohe::Mesh_io(globalvars::mesh).read_auto("cylinder.obj");
+    foldertools::makeandsetdir("C:\\Users\\Hans_\\Documents\\GitHub\\CPSC524\\mesh");
+    mohe::Mesh_io(globalvars::mesh).read_auto("cactus.obj");
   }
   else // otherwise use the address specified in the command line
   {
@@ -266,7 +266,7 @@ main(int argc, char * argv[])
 
   // Calculate weights and initial Laplacian
   globalvars::modi.build_weights();
-//  globalvars::modi.build_laplacian();
+//  globalvars::modi.build_L();
 
   // Initialize GLUT window
   glutInit(&argc, argv);

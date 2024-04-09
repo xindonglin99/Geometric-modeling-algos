@@ -65,7 +65,7 @@ namespace minimesh {
             void set_anchor_vertex(int id);
 
             // Build original Laplacian Matrix
-            void build_laplacian();
+            void build_L();
 
             // Build the cotangent weight vector
             void build_weights();
@@ -78,10 +78,7 @@ namespace minimesh {
             Mesh_connectivity &_m;
 
             int _anchor_id = Mesh_connectivity::invalid_index;
-
-            Eigen::SparseMatrix<double> _laplacian;
             std::vector<double> _cot_weights;
-            std::vector<double> _uniform_weights;
 
             struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;

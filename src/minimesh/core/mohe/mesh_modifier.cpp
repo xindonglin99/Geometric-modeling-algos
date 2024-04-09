@@ -12,7 +12,6 @@
 #include <cmath>
 #include <Eigen/SparseCholesky>
 
-
 namespace minimesh {
 namespace mohe {
 Mesh_modifier::
@@ -530,7 +529,7 @@ void Mesh_modifier::parametrize_tutte() {
   std::vector<double> V(K);
 
   // Map the boundary to unit circle
-  for (int i=0; i<K; ++i) {
+  for (int i = 0; i < K; ++i) {
     // Upper half of the circle
     U[i] = cos(2 * M_PI * i / K);
     V[i] = sin(2 * M_PI * i / K);
@@ -542,7 +541,7 @@ void Mesh_modifier::parametrize_tutte() {
   Eigen::SparseMatrix<double> W(N, N);
   Eigen::VectorXd b_u = Eigen::VectorXd::Zero(N);
   Eigen::VectorXd b_v = Eigen::VectorXd::Zero(N);
-  for (int i=0; i<N; ++i) {
+  for (int i = 0; i < N; ++i) {
     auto it = std::find(boundary_ind.begin(), boundary_ind.end(), i);
     if (it != boundary_ind.end()) {
       W_elem.emplace_back(i, i, 1.0);
@@ -584,7 +583,7 @@ void Mesh_modifier::parametrize_tutte() {
   Eigen::VectorXd solved_u = solver.solve(b_u);
   Eigen::VectorXd solved_v = solver.solve(b_v);
 
-  for (int i=0; i<N; ++i) {
+  for (int i = 0; i < N; ++i) {
     mesh().vertex_at(i).data().xyz[0] = solved_u[i];
     mesh().vertex_at(i).data().xyz[1] = solved_v[i];
     mesh().vertex_at(i).data().xyz[2] = 0.0;
@@ -592,14 +591,14 @@ void Mesh_modifier::parametrize_tutte() {
 }
 
 double Mesh_modifier::calculate_angle(const Eigen::Vector3d &a, const Eigen::Vector3d &b) {
-    return acos(a.normalized().dot(b.normalized()));
+  return acos(a.normalized().dot(b.normalized()));
 }
 
 std::pair<std::vector<Mesh_connectivity::Vertex_iterator>, std::vector<int>> Mesh_modifier::find_boundary_verts() {
   int first_boundary_he_index = -3;
   // Total number of vertices
 
-  for (int i=0; i < mesh().n_total_half_edges(); ++i) {
+  for (int i = 0; i < mesh().n_total_half_edges(); ++i) {
     if (mesh().half_edge_at(i).face().is_equal(mesh().hole())) {
       first_boundary_he_index = i;
       break;
@@ -626,8 +625,8 @@ std::pair<int, int> Mesh_modifier::find_farthest(std::vector<Mesh_connectivity::
   double max_dist = -1;
   std::pair<int, int> curr_largest_ind = std::make_pair(-1, -1);
 
-  for (int i=0; i<verts.size(); ++i) {
-    for (int j=0; j<verts.size(); ++j) {
+  for (int i = 0; i < verts.size(); ++i) {
+    for (int j = 0; j < verts.size(); ++j) {
       const double curr_dist = (verts[i].xyz() - verts[j].xyz()).norm();
       if (curr_dist > max_dist) {
         max_dist = curr_dist;
@@ -639,7 +638,9 @@ std::pair<int, int> Mesh_modifier::find_farthest(std::vector<Mesh_connectivity::
   return curr_largest_ind;
 }
 
-Eigen::Matrix2d Mesh_modifier::LSCM_coeff_M(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2, const Eigen::Vector3d& P3) {
+Eigen::Matrix2d Mesh_modifier::LSCM_coeff_M(const Eigen::Vector3d &P1,
+                                            const Eigen::Vector3d &P2,
+                                            const Eigen::Vector3d &P3) {
   const Eigen::Vector3d p1p2 = P2 - P1;
   const Eigen::Vector3d p1p3 = P3 - P1;
   const Eigen::Vector3d p2p1 = -p1p2;
@@ -672,13 +673,13 @@ void Mesh_modifier::parametrize_LSCM() {
   int small_fix_ind = fixed_verts_ind.first < fixed_verts_ind.second ? fixed_verts_ind.first : fixed_verts_ind.second;
   int large_fix_ind = fixed_verts_ind.first > fixed_verts_ind.second ? fixed_verts_ind.first : fixed_verts_ind.second;
   std::vector<int> defrag_map(N);
-  for (int i=0; i<N; ++i) {
+  for (int i = 0; i < N; ++i) {
     if (i < small_fix_ind) {
       defrag_map[i] = i;
     } else if (i > small_fix_ind && i < large_fix_ind) {
       defrag_map[i] = i - 1;
     } else {
-      defrag_map[i] = i-2;
+      defrag_map[i] = i - 2;
     }
   }
   defrag_map[small_fix_ind] = -3;
@@ -692,7 +693,7 @@ void Mesh_modifier::parametrize_LSCM() {
   std::vector<Eigen::Triplet<double>> B_elem;
 
   // Loop through all the faces
-  for (int i=0; i<F; ++i) {
+  for (int i = 0; i < F; ++i) {
     Mesh_connectivity::Half_edge_iterator he = mesh().face_at(i).half_edge();
     int corner_count = 0;
     do {
@@ -703,48 +704,48 @@ void Mesh_modifier::parametrize_LSCM() {
       Eigen::Matrix2d rot_M = LSCM_coeff_M(P1.xyz(), P2.xyz(), P3.xyz());
       // First equation of this corner
       if (P1.index() == small_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 0, -(rot_M(0,0) - 1));
-        B_elem.emplace_back(i*6+2*corner_count, 1, -(rot_M(0,1)));
-        B_elem.emplace_back(i*6+2*corner_count+1, 0, -(rot_M(1,0)));
-        B_elem.emplace_back(i*6+2*corner_count+1, 1, -(rot_M(1,1) - 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 0, -(rot_M(0, 0) - 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 1, -(rot_M(0, 1)));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 0, -(rot_M(1, 0)));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 1, -(rot_M(1, 1) - 1));
       } else if (P1.index() == large_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 2, -(rot_M(0,0) - 1));
-        B_elem.emplace_back(i*6+2*corner_count, 3, -(rot_M(0,1)));
-        B_elem.emplace_back(i*6+2*corner_count+1, 2, -(rot_M(1,0)));
-        B_elem.emplace_back(i*6+2*corner_count+1, 3, -(rot_M(1,1) - 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 2, -(rot_M(0, 0) - 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 3, -(rot_M(0, 1)));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2, -(rot_M(1, 0)));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 3, -(rot_M(1, 1) - 1));
       } else {
-        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P1.index()], rot_M(0,0) - 1); // u1 * R11-1
-        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P1.index()]+1, rot_M(0,1)); //v1 * R12
-        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P1.index()], rot_M(1,0)); // u1 * R21
-        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P1.index()]+1, rot_M(1,1) - 1);//v1 * R22 -1
+        W_elem.emplace_back(i * 6 + 2 * corner_count, 2 * defrag_map[P1.index()], rot_M(0, 0) - 1); // u1 * R11-1
+        W_elem.emplace_back(i * 6 + 2 * corner_count, 2 * defrag_map[P1.index()] + 1, rot_M(0, 1)); //v1 * R12
+        W_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2 * defrag_map[P1.index()], rot_M(1, 0)); // u1 * R21
+        W_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2 * defrag_map[P1.index()] + 1, rot_M(1, 1) - 1);//v1 * R22 -1
       }
 
       if (P2.index() == small_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 0, rot_M(0,0));
-        B_elem.emplace_back(i*6+2*corner_count, 1, rot_M(0,1));
-        B_elem.emplace_back(i*6+2*corner_count+1, 0, rot_M(1,0));
-        B_elem.emplace_back(i*6+2*corner_count+1, 1, rot_M(1,1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 0, rot_M(0, 0));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 1, rot_M(0, 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 0, rot_M(1, 0));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 1, rot_M(1, 1));
       } else if (P2.index() == large_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 2, rot_M(0,0));
-        B_elem.emplace_back(i*6+2*corner_count, 3, rot_M(0,1));
-        B_elem.emplace_back(i*6+2*corner_count+1, 2, rot_M(1,0));
-        B_elem.emplace_back(i*6+2*corner_count+1, 3, rot_M(1,1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 2, rot_M(0, 0));
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 3, rot_M(0, 1));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2, rot_M(1, 0));
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 3, rot_M(1, 1));
       } else {
-        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P2.index()], -rot_M(0,0)); // -R11 * u2
-        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P2.index()]+1, -rot_M(0,1)); // -R12 * v2
-        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P2.index()], -rot_M(1,0));// -R21 * u2
-        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P2.index()]+1, -rot_M(1,1));// -R22 * v2
+        W_elem.emplace_back(i * 6 + 2 * corner_count, 2 * defrag_map[P2.index()], -rot_M(0, 0)); // -R11 * u2
+        W_elem.emplace_back(i * 6 + 2 * corner_count, 2 * defrag_map[P2.index()] + 1, -rot_M(0, 1)); // -R12 * v2
+        W_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2 * defrag_map[P2.index()], -rot_M(1, 0));// -R21 * u2
+        W_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2 * defrag_map[P2.index()] + 1, -rot_M(1, 1));// -R22 * v2
       }
 
       if (P3.index() == small_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 0, -1.0);
-        B_elem.emplace_back(i*6+2*corner_count+1, 1, -1.0);
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 0, -1.0);
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 1, -1.0);
       } else if (P3.index() == large_fix_ind) {
-        B_elem.emplace_back(i*6+2*corner_count, 2, -1.0);
-        B_elem.emplace_back(i*6+2*corner_count+1, 3, -1.0);
+        B_elem.emplace_back(i * 6 + 2 * corner_count, 2, -1.0);
+        B_elem.emplace_back(i * 6 + 2 * corner_count + 1, 3, -1.0);
       } else {
-        W_elem.emplace_back(i*6+2*corner_count, 2*defrag_map[P3.index()], 1.0); // u3
-        W_elem.emplace_back(i*6+2*corner_count+1, 2*defrag_map[P3.index()]+1, 1.0);// v3
+        W_elem.emplace_back(i * 6 + 2 * corner_count, 2 * defrag_map[P3.index()], 1.0); // u3
+        W_elem.emplace_back(i * 6 + 2 * corner_count + 1, 2 * defrag_map[P3.index()] + 1, 1.0);// v3
       }
 
       corner_count++;
@@ -767,8 +768,7 @@ void Mesh_modifier::parametrize_LSCM() {
   solver.compute(W.transpose() * W);
   Eigen::VectorXd uv = solver.solve(W.transpose() * B * b);
 
-
-  for (int i=0; i<N; ++i) {
+  for (int i = 0; i < N; ++i) {
     if (i == small_fix_ind) {
       mesh().vertex_at(i).data().xyz[0] = 0;
       mesh().vertex_at(i).data().xyz[1] = 0.0;
@@ -778,8 +778,8 @@ void Mesh_modifier::parametrize_LSCM() {
       mesh().vertex_at(i).data().xyz[1] = 1.0;
       mesh().vertex_at(i).data().xyz[2] = 0.0;
     } else {
-      mesh().vertex_at(i).data().xyz[0] = uv[2*defrag_map[i]];
-      mesh().vertex_at(i).data().xyz[1] = uv[2*defrag_map[i]+1];
+      mesh().vertex_at(i).data().xyz[0] = uv[2 * defrag_map[i]];
+      mesh().vertex_at(i).data().xyz[1] = uv[2 * defrag_map[i] + 1];
       mesh().vertex_at(i).data().xyz[2] = 0.0;
     }
 
@@ -811,142 +811,135 @@ void Mesh_modifier::set_anchor_vertex(int id) {
   this->_anchor_id = id;
 }
 
-Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d& pos) {
+Eigen::Matrix3Xd Mesh_modifier::deform(int deform_id, const Eigen::Vector3d &pos) {
 //  force_assert(_anchor_id != -1 && _anchor_id != -3);
-
-
   int N = mesh().n_total_vertices();
   Eigen::Matrix3Xd pos_deformed(3, N);
-  for (int i=0;i<N;++i) {
-    pos_deformed.col(i) = mesh().vertex_at(i).xyz();
-  }
-
-  // Set the number of iterations
-  int num_iter = 4;
+  Eigen::Matrix3Xd free_pos_deformed(3, N-2);
 
   // Initialize all Rotations to be identity
   std::vector<Eigen::Matrix3d> m_rotation;
   m_rotation.reserve(N);
-  for (int i=0; i<N; i++) {
+  for (int i = 0; i < N; i++) {
     Eigen::Matrix3d id_rotation = Eigen::Matrix3d::Identity();
     m_rotation.push_back(id_rotation);
   }
 
+  // free index;
+  int free_index = 0;
+  // For building the index maps
+  std::unordered_map<int, int> free_to_original;
+  std::unordered_map<int, int> original_to_free;
+  for (int i=0; i<N; ++i) {
+    if (i != _anchor_id && i != deform_id) {
+      free_to_original[free_index] = i;
+      original_to_free[i] = free_index;
+      free_index++;
+    }
+  }
 
-  // Update constraints
-  Eigen::SparseMatrix<double> L(N, N - 2);
+  // Building the L matrix and the solver
+  Eigen::SparseMatrix<double> L(N, N-2);
   std::vector<Eigen::Triplet<double>> L_elem;
   L_elem.reserve(N * (N-2));
-  // Update the Bs
-  Eigen::MatrixX3d B(N,3);
+  for (int i = 0; i < N; ++i) {
+    Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+    double L_sum = 0.0;
+    do {
+      int neighbour_id = ring.half_edge().origin().index();
+      double w_ij = _cot_weights[ring.half_edge().index()];
+      L_sum += w_ij;
 
-  // Building the defrag maps
-    std::unordered_map<int, int> free_to_original;
-    std::unordered_map<int, int> original_to_free;
-    int map_count = 0;
-    for (int i = 0; i < N; ++i) {
-        if (i != _anchor_id && i != deform_id) {
-            free_to_original[map_count] = i;
-            original_to_free[i] = map_count;
-            map_count ++;
-        }
+      // handle neighbour case
+      if (neighbour_id != _anchor_id && neighbour_id != deform_id) {
+        L_elem.emplace_back(i, original_to_free[neighbour_id], -w_ij);
+      }
+    } while (ring.advance());
+    // handle ith vertex case
+    if (i != _anchor_id && i != deform_id) {
+      L_elem.emplace_back(i, original_to_free[i], L_sum);
     }
-
-    // Building the L matrix
-  for (int i=0; i<N; ++i) {
-      Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
-      Eigen::Vector3d B_sum(0.0f, 0.0f, 0.0f);
-      double L_sum = 0.0;
-      do {
-          int neighbour_id = ring.half_edge().origin().index();
-          double w_ij = _cot_weights[ring.half_edge().index()];
-          B_sum += w_ij * 0.5
-                   * (m_rotation[ring.half_edge().dest().index()] + m_rotation[ring.half_edge().origin().index()])
-                   * (ring.half_edge().dest().xyz() - ring.half_edge().origin().xyz());
-          Eigen::Vector3d left_weight = w_ij * pos_deformed.col(neighbour_id);
-          L_sum += w_ij;
-
-          // handle neighbour case
-          if ( neighbour_id != _anchor_id && neighbour_id != deform_id) {
-              L_elem.emplace_back(i, original_to_free[neighbour_id], -w_ij);
-          }
-
-          // handle ith vertex case
-          if ( i == _anchor_id ) {
-              B_sum -= L_sum * mesh().vertex_at(_anchor_id).xyz();
-          } else if ( i == deform_id ) {
-              B_sum -= L_sum * pos;
-          } else {
-              L_elem.emplace_back(i, original_to_free[i], L_sum);
-          }
-
-
-      } while (ring.advance());
-      B.row(i) = B_sum;
-
   }
+
   L.setFromTriplets(L_elem.begin(), L_elem.end());
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-  solver.compute(L);
-  if(solver.info()!=Eigen::Success) {
-    std::cout<<"Decomposition failed!"<<std::endl;
+  solver.compute(L.transpose() * L);
+  if (solver.info() != Eigen::Success) {
+    std::cout << "Decomposition failed!" << std::endl;
     return pos_deformed;
   }
 
+  // Set the number of iterations
+  int num_iter = 4;
   int itr = 0;
   while (itr < num_iter) {
-      if (itr > 0) update_rotations(m_rotation, pos_deformed);
+    if (itr > 0) update_rotations(m_rotation, pos_deformed);
 
-
-    for (int i=0; i<N; ++i) {
+    // Update the B
+    Eigen::MatrixX3d B(N, 3);
+    for (int i = 0; i < N; ++i) {
       Eigen::Vector3d sum(0.0f, 0.0f, 0.0f);
+      double L_sum = 0.0;
+      Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+      do {
+        double w_ij = _cot_weights[ring.half_edge().index()];
+        int neighbour_id = ring.half_edge().origin().index();
+        L_sum += w_ij;
+        // For normal right side
+        sum += w_ij * 0.5
+            * (m_rotation[ring.half_edge().dest().index()] + m_rotation[ring.half_edge().origin().index()])
+            * (ring.half_edge().dest().xyz() - ring.half_edge().origin().xyz());
 
-      if (i == _anchor_id) {
-        sum = mesh().vertex_at(_anchor_id).xyz();
-      } else if (i == deform_id) {
-        sum = pos;
-      } else {
-        Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
-        do {
-          double w_ij = _cot_weights[ring.half_edge().index()];
-          sum += w_ij * 0.5
-              * (m_rotation[ring.half_edge().dest().index()] + m_rotation[ring.half_edge().origin().index()])
-              * (ring.half_edge().dest().xyz() - ring.half_edge().origin().xyz());
-        } while (ring.advance());
+        // handle neighbour case
+        if ( neighbour_id == _anchor_id) {
+          sum += w_ij * mesh().vertex_at(_anchor_id).xyz();
+        } else if ( neighbour_id == deform_id) {
+          sum += w_ij * pos;
+        }
+      } while (ring.advance());
+
+      // handle ith case
+      if ( i == _anchor_id) {
+        sum -= L_sum * mesh().vertex_at(_anchor_id).xyz();
+      } else if ( i == deform_id) {
+        sum -= L_sum * pos;
       }
 
       B.row(i) = sum;
     }
+
     // Solve for P_prime
-    pos_deformed = solver.solve(B).transpose();
+    free_pos_deformed = solver.solve(L.transpose() * B).transpose();
+
+    // Update deformed in non-fragmented way
+    for (int i=0; i<N-2; ++i) {
+      pos_deformed.col(free_to_original[i]) = free_pos_deformed.col(i);
+    }
+    pos_deformed.col(_anchor_id) = mesh().vertex_at(_anchor_id).xyz();
+    pos_deformed.col(deform_id) = pos;
     itr++;
   }
-
   return pos_deformed;
 }
 
 double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
   double result = 0.0;
 
-//  if (!he.face().is_equal(mesh().hole())) {
+  if (!he.face().is_equal(mesh().hole())) {
     Eigen::Vector3d CA = he.origin().xyz() - he.next().dest().xyz();
     Eigen::Vector3d CB = he.dest().xyz() - he.next().dest().xyz();
-    double cos_angle_alpha = CA.normalized().dot(CB.normalized());
-    double sine_angle_alpha = sin(acos(cos_angle_alpha));
 
-    result +=  cos_angle_alpha / sine_angle_alpha;
-//  }
+    result += CA.dot(CB) / CA.cross(CB).norm();
+  }
 
   Mesh_connectivity::Half_edge_iterator twin = he.twin();
 
-//  if (!twin.face().is_equal(mesh().hole())) {
+  if (!twin.face().is_equal(mesh().hole())) {
     Eigen::Vector3d DB = twin.origin().xyz() - twin.next().dest().xyz();
     Eigen::Vector3d DA = twin.dest().xyz() - twin.next().dest().xyz();
-    double cos_angle_beta = DB.normalized().dot(DA.normalized());
-    double sine_angle_beta = sin(acos(cos_angle_beta));
 
-    result += cos_angle_beta / sine_angle_beta;
-//  }
+    result += DB.dot(DA) / DB.cross(DA).norm();
+  }
 
   result *= 0.5;
 
@@ -958,35 +951,17 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
 void Mesh_modifier::build_weights() {
   int M = mesh().n_total_half_edges();
   _cot_weights.reserve(M);
-  for (int i=0; i<M; ++i) {
+  for (int i = 0; i < M; ++i) {
     _cot_weights.push_back(cot(mesh().half_edge_at(i)));
   }
 }
 
-void Mesh_modifier::build_laplacian() {
-  int N = mesh().n_total_vertices();
+void Mesh_modifier::build_L() {
 
-  _laplacian = Eigen::SparseMatrix<double>(N,N);
-  std::vector<Eigen::Triplet<double>> L_elem;
-
-  for (int i=0; i<N; ++i) {
-    Mesh_connectivity::Vertex_ring_iterator v_ring = mesh().vertex_ring_at(i);
-    double ii_weight = 0.0;
-    do {
-      Mesh_connectivity::Vertex_iterator v_next = v_ring.half_edge().origin();
-      L_elem.emplace_back(i, v_next.index(), -_cot_weights[v_ring.half_edge().index()]);
-      ii_weight += _cot_weights[v_ring.half_edge().index()];
-    } while (v_ring.advance());
-
-    L_elem.emplace_back(i, i, ii_weight);
-  }
-
-  _laplacian.setFromTriplets(L_elem.begin(), L_elem.end());
-//  _laplacian.makeCompressed();
 }
 
 void Mesh_modifier::update_rotations(std::vector<Eigen::Matrix3d> &m_rots, Eigen::Matrix3Xd &deformed_pos) {
-  for (int i=0; i<mesh().n_total_vertices(); ++i) {
+  for (int i = 0; i < mesh().n_total_vertices(); ++i) {
     std::vector<Mesh_connectivity::Vertex_iterator> neighbours;
     Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
     do {
@@ -998,7 +973,7 @@ void Mesh_modifier::update_rotations(std::vector<Eigen::Matrix3d> &m_rots, Eigen
     Eigen::MatrixXd P = Eigen::MatrixXd::Zero(3, num_neighbour);
     Eigen::MatrixXd D = Eigen::MatrixXd::Zero(num_neighbour, num_neighbour);
 
-    for (int j=0; j<num_neighbour; ++j) {
+    for (int j = 0; j < num_neighbour; ++j) {
       PPrime.col(j) = deformed_pos.col(i) - deformed_pos.col(neighbours[j].index());
       P.col(j) = mesh().vertex_at(i).xyz() - neighbours[j].xyz();
       D(j, j) = _cot_weights[get_halfedge_between_vertices(i, neighbours[j].index())];
