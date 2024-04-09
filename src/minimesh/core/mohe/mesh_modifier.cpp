@@ -942,9 +942,6 @@ double Mesh_modifier::cot(Mesh_connectivity::Half_edge_iterator he) {
   }
 
   result *= 0.5;
-
-//  result = 1.0;
-
   return result;
 }
 
