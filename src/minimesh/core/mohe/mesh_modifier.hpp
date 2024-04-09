@@ -81,6 +81,7 @@ namespace minimesh {
 
             Eigen::SparseMatrix<double> _laplacian;
             std::vector<double> _cot_weights;
+            std::vector<double> _uniform_weights;
 
             struct Edge_distance {
                 Mesh_connectivity::Half_edge_iterator he;
