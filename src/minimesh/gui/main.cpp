@@ -253,8 +253,8 @@ main(int argc, char * argv[])
   // Change the hardcoded address to your needs.
   if(argc == 1)
   {
-    foldertools::makeandsetdir("C:\\Users\\Hans_\\Documents\\GitHub\\CPSC524\\mesh");
-    mohe::Mesh_io(globalvars::mesh).read_auto("cactus.obj");
+    foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524/mesh");
+    mohe::Mesh_io(globalvars::mesh).read_auto("cylinder.obj");
   }
   else // otherwise use the address specified in the command line
   {
