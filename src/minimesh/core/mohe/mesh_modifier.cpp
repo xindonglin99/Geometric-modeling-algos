@@ -919,9 +919,9 @@ void Mesh_modifier::build_weights() {
   int M = mesh().n_total_half_edges();
   _cot_weights.reserve(M);
   for (int i = 0; i < M; ++i) {
-    if (mesh().half_edge_at(i).twin().index() < i) {
-      _cot_weights.push_back(_cot_weights[mesh().half_edge_at(i).twin().index()]);
-    }
+//    if (mesh().half_edge_at(i).twin().index() < i) {
+//      _cot_weights.push_back(_cot_weights[mesh().half_edge_at(i).twin().index()]);
+//    }
     _cot_weights.push_back(cot(mesh().half_edge_at(i)));
   }
 }
