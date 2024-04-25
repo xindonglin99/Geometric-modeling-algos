@@ -239,6 +239,11 @@ parametrize(int)
 //  mohe::Mesh_io(globalvars::mesh).write_obj("C:/Users/Hans_/Documents/GitHub/CPSC524/mesh-open/man_out.obj");
 }
 
+void
+remesh_button_pressed(int) {
+  printf("Remeshing...");
+}
+
 }
 
 
@@ -382,6 +387,11 @@ main(int argc, char * argv[])
   //
   GLUI_Panel * panel_deform = globalvars::glui->add_panel("Deformation");
   globalvars::glui->add_checkbox_to_panel(panel_deform, "Deform", &globalvars::is_deforming);
+
+  //
+  // Add the remeshing button
+  //
+  globalvars::glui->add_button("Remesh", -1, freeglutcallback::remesh_button_pressed);
 
   //
   // Save the initial vertex positions
