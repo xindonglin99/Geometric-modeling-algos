@@ -168,8 +168,23 @@ namespace minimesh
 			// Update the rotation matrices in the deformation
 			void update_rotations(std::vector<Eigen::Matrix3d>& m_rots, Eigen::Matrix3Xd& deformed_pos);
 
-			// Remeshing step 1: split edge
+			// Remeshing step 1: split long edge
+			void split_long_edge(double max_target_length);
 
+			// Remeshing step 2: collapse short edge
+			void collapse_short_edge(double min_target_length);
+
+			// Remeshing step 3: flip edges
+			void flip_edges();
+
+			// Remeshing step 4: shift vertices
+			void shift_vertices();
+
+			// Remeshing step 5: project vertices
+			void project_vertices();
+
+			// Break edge in the mid-point given a half-edge
+			Mesh_connectivity::Half_edge_iterator break_half_edge(int id);
 		};
 	} // end of mohe
 } // end of minimesh

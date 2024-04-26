@@ -234,7 +234,6 @@ namespace minimesh
 			return edge_distance;
 		}
 
-// Should pass in v1, as we are deactivating v2
 		void
 		Mesh_modifier::update_Qs(Mesh_connectivity::Vertex_iterator new_v)
 		{
@@ -865,14 +864,6 @@ namespace minimesh
 				} while (!he.is_equal(mesh().face_at(i).half_edge()));
 			}
 
-//  // Extra two rows for the constraints on the fixed boundary vertex
-//  // i.e. u_fixed = 0, v_fixed = 0;
-//  W_elem.emplace_back(6 * F, 2*fixed_verts_ind.first, 1.0);
-//  W_elem.emplace_back(6 * F + 1, 2*fixed_verts_ind.first+1, 1.0);
-//  W_elem.emplace_back(6 * F + 2, 2*fixed_verts_ind.second, 1.0);
-//  W_elem.emplace_back(6 * F + 3, 2*fixed_verts_ind.second+1, 1.0);
-//  b[6 * F + 3] = 1.0;
-
 			W.setFromTriplets(W_elem.begin(), W_elem.end());
 			B.setFromTriplets(B_elem.begin(), B_elem.end());
 
@@ -1165,7 +1156,107 @@ namespace minimesh
 
 		void Mesh_modifier::remesh()
 		{
+			int num_itr = 1;
 			double target_length = 0.0;
+			for (int i=0; i<mesh().n_total_half_edges();++i)
+			{
+				Mesh_connectivity::Half_edge_iterator he = mesh().half_edge_at(i);
+				target_length += (he.dest().xyz() - he.origin().xyz()).norm();
+			}
+			target_length /= mesh().n_total_half_edges();
+
+			// Choose target length
+			target_length *= 0.98;
+
+			double min_target_length = 4.0 / 5.0 * target_length;
+			double max_target_length = 3.0 / 4.0 * target_length;
+
+			std::vector<Eigen::Vector3d> normals(mesh().n_total_faces());
+
+			for (int i=0; i<num_itr; ++i)
+			{
+				split_long_edge(max_target_length);
+				collapse_short_edge(min_target_length);
+				flip_edges();
+				shift_vertices();
+				project_vertices();
+			}
+
+		}
+
+		void Mesh_modifier::split_long_edge(double max_target_length)
+		{
+			std::vector<int> visited;
+			visited.reserve((int) mesh().n_total_half_edges()/2);
+
+			for (int i = 0; i < mesh().n_total_half_edges(); ++i )
+			{
+				if (std::find(visited.begin(), visited.end(), i) == visited.end()) continue;
+				Mesh_connectivity::Half_edge_iterator curr_he = mesh().half_edge_at(i);
+				visited.push_back(curr_he.twin().index());
+
+				double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
+
+				if (length > max_target_length)
+				{
+					break_half_edge(i);
+				}
+
+			}
+		}
+
+		Mesh_connectivity::Half_edge_iterator Mesh_modifier::break_half_edge(int id)
+		{
+			Mesh_connectivity::Half_edge_iterator he = mesh().half_edge_at(id);
+			Mesh_connectivity::Half_edge_iterator he_next = he.next();
+			Mesh_connectivity::Half_edge_iterator he_prev = he.prev();
+
+			Mesh_connectivity::Half_edge_iterator twin = he.twin();
+			Mesh_connectivity::Half_edge_iterator twin_next = twin.next();
+			Mesh_connectivity::Half_edge_iterator twin_prev = twin.prev();
+
+			Mesh_connectivity::Vertex_iterator new_vertex = mesh().add_vertex(false);
+			new_vertex.data().xyz = 0.5 * (he.origin().xyz() + he.dest().xyz());
+
+			// New half edge
+			Mesh_connectivity::Half_edge_iterator right_he_new = mesh().add_half_edge(false);
+			Mesh_connectivity::Half_edge_iterator right_twin_new = mesh().add_half_edge(false);
+
+			if (he.face().is_equal(mesh().hole()))
+			{
+				// Vertex
+				new_vertex.data().half_edge = right_he_new.index();
+
+				//
+				// Half edges
+				//
+				he.data().next = right_he_new.index(); // he
+				he.data().twin = right_twin_new.index();
+				he.data().face = Mesh_connectivity::hole_index;
+
+				right_he_new.data().prev = he.index(); // he_right_new
+				right_he_new.data().twin = twin.index();
+				right_he_new.data().next = he_next.index();
+				right_he_new.data().face = Mesh_connectivity::hole_index;
+			} else {
+				
+			}
+		}
+
+		void Mesh_modifier::collapse_short_edge(double min_target_length)
+		{
+
+		}
+		void Mesh_modifier::flip_edges()
+		{
+
+		}
+		void Mesh_modifier::shift_vertices()
+		{
+
+		}
+		void Mesh_modifier::project_vertices()
+		{
 
 		}
 
