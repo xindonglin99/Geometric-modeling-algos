@@ -17,8 +17,6 @@
     "files.exclude": {
       "**/*~": true,
       "**/#*": true,
-      "build-dbg": true,
-      "build-opt": true,
       "third-party.zip":true,
       "debugger": true,
       "webpage": true,
@@ -28,15 +26,11 @@
     // IF USING CMAKE
     //
     "cmake": {
-        "buildDirectory": "${workspaceRoot}/build-dbg",
+        "buildDirectory": "${workspaceRoot}/build-opt",
         "parallelJobs": 6,
         "useCMakeServer": false,
         "sourceDirectory": "${workspaceRoot}"
     },
-    //
-    // Open files with double click rather than one click
-    //
-    "workbench.list.openMode": "doubleClick",
     //
     // Some clang-format stuff
     //
@@ -136,4 +130,11 @@
       "strings": "off",
       "other": "off"
     },
+    "cmake.configureArgs": [
+      "-DCMAKE_BUILD_TYPE=release", "-DEIGEN3_DIR=${PWD}/../third-party/eigen", "-DGLUI_DIR=/usr/local/Cellar/glui/2.37_1"
+    ],
+    "cmake.buildArgs": [
+      "-j"
+    ],
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++",
 }

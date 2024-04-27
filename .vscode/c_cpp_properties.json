@@ -37,7 +37,9 @@
             "defines": [],
             "cStandard": "c11",
             "cppStandard": "c++14",
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "clang-x64",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compileCommands": "${workspaceFolder}/build-dbg/compile_commands.json"
         }
     ],
     "version": 4
