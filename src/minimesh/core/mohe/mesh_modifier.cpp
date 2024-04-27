@@ -1178,7 +1178,7 @@ namespace minimesh
 				split_long_edge(max_target_length);
 				collapse_short_edge(min_target_length, max_target_length);
 				flip_edges();
-//				shift_vertices();
+				shift_vertices();
 //				project_vertices();
 			}
 
@@ -1391,6 +1391,7 @@ namespace minimesh
 		{
 
 		}
+
 		void Mesh_modifier::project_vertices()
 		{
 
