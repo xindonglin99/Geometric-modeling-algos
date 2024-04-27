@@ -266,6 +266,12 @@ namespace freeglutcallback
 	remesh_button_pressed(int)
 	{
 		printf("Remeshing...");
+		globalvars::modi.remesh();
+
+		mohe::Mesh_connectivity::Defragmentation_maps defrag;
+		globalvars::mesh.compute_defragmention_maps(defrag);
+		globalvars::viewer.get_mesh_buffer().rebuild(globalvars::mesh, defrag);
+		glutPostRedisplay();
 	}
 
 }
@@ -282,7 +288,7 @@ main(int argc, char* argv[])
 	if (argc == 1)
 	{
 		foldertools::makeandsetdir("/Users/Hans/Documents/CPSC524/mesh");
-		mohe::Mesh_io(globalvars::mesh).read_auto("cylinder.obj");
+		mohe::Mesh_io(globalvars::mesh).read_auto("woody-lo.obj");
 	}
 	else // otherwise use the address specified in the command line
 	{
@@ -294,7 +300,6 @@ main(int argc, char* argv[])
 
 	// Calculate weights and initial Laplacian
 	globalvars::modi.build_weights();
-//  globalvars::modi.build_L();
 
 	// Initialize GLUT window
 	glutInit(&argc, argv);

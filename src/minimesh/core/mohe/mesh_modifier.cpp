@@ -1169,78 +1169,143 @@ namespace minimesh
 			target_length *= 0.98;
 
 			double min_target_length = 4.0 / 5.0 * target_length;
-			double max_target_length = 3.0 / 4.0 * target_length;
+			double max_target_length = 4.0 / 3.0 * target_length;
 
 			std::vector<Eigen::Vector3d> normals(mesh().n_total_faces());
 
 			for (int i=0; i<num_itr; ++i)
 			{
 				split_long_edge(max_target_length);
-				collapse_short_edge(min_target_length);
-				flip_edges();
-				shift_vertices();
-				project_vertices();
+//				collapse_short_edge(min_target_length);
+//				flip_edges();
+//				shift_vertices();
+//				project_vertices();
 			}
 
+			force_assert(mesh().check_sanity_slowly());
 		}
 
 		void Mesh_modifier::split_long_edge(double max_target_length)
 		{
-			std::vector<int> visited;
-			visited.reserve((int) mesh().n_total_half_edges()/2);
-
-			for (int i = 0; i < mesh().n_total_half_edges(); ++i )
+			int N = mesh().n_total_faces();
+			for (int i = 0; i < N; ++i )
 			{
-				if (std::find(visited.begin(), visited.end(), i) == visited.end()) continue;
-				Mesh_connectivity::Half_edge_iterator curr_he = mesh().half_edge_at(i);
-				visited.push_back(curr_he.twin().index());
+				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
 
-				double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
+				int const start_id = curr_face.half_edge().index();
+				int curr_id = start_id;
+				std::vector<int> break_list;
 
-				if (length > max_target_length)
+				do {
+					Mesh_connectivity::Half_edge_iterator curr_he = mesh().half_edge_at(curr_id);
+					double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
+
+					if (length > max_target_length)
+					{
+						break_list.push_back(curr_id);
+					}
+					curr_id = curr_he.next().index();
+				} while (curr_id != start_id);
+
+				for (auto & he: break_list)
 				{
-					break_half_edge(i);
+					break_half_edge(he);
 				}
-
 			}
 		}
 
-		Mesh_connectivity::Half_edge_iterator Mesh_modifier::break_half_edge(int id)
+		void Mesh_modifier::break_half_edge(int id)
 		{
-			Mesh_connectivity::Half_edge_iterator he = mesh().half_edge_at(id);
-			Mesh_connectivity::Half_edge_iterator he_next = he.next();
-			Mesh_connectivity::Half_edge_iterator he_prev = he.prev();
+			Mesh_connectivity::Half_edge_iterator curr_he = mesh().half_edge_at(id);
+			Mesh_connectivity::Face_iterator curr_face = curr_he.face();
 
-			Mesh_connectivity::Half_edge_iterator twin = he.twin();
-			Mesh_connectivity::Half_edge_iterator twin_next = twin.next();
-			Mesh_connectivity::Half_edge_iterator twin_prev = twin.prev();
+			Mesh_connectivity::Half_edge_iterator twin_he = curr_he.twin();
+			Mesh_connectivity::Face_iterator twin_face = twin_he.face();
 
 			Mesh_connectivity::Vertex_iterator new_vertex = mesh().add_vertex(false);
-			new_vertex.data().xyz = 0.5 * (he.origin().xyz() + he.dest().xyz());
+			new_vertex.data().xyz = 0.5 * (curr_he.dest().xyz() + curr_he.origin().xyz());
 
-			// New half edge
-			Mesh_connectivity::Half_edge_iterator right_he_new = mesh().add_half_edge(false);
-			Mesh_connectivity::Half_edge_iterator right_twin_new = mesh().add_half_edge(false);
+			std::vector<Mesh_connectivity::Half_edge_iterator> left_face_half_edges;
+			std::vector<Mesh_connectivity::Half_edge_iterator> right_face_half_edges;
+			break_face(
+					curr_face,
+					curr_he,
+					new_vertex,
+					right_face_half_edges,
+					left_face_half_edges);
 
-			if (he.face().is_equal(mesh().hole()))
-			{
-				// Vertex
-				new_vertex.data().half_edge = right_he_new.index();
-
-				//
-				// Half edges
-				//
-				he.data().next = right_he_new.index(); // he
-				he.data().twin = right_twin_new.index();
-				he.data().face = Mesh_connectivity::hole_index;
-
-				right_he_new.data().prev = he.index(); // he_right_new
-				right_he_new.data().twin = twin.index();
-				right_he_new.data().next = he_next.index();
-				right_he_new.data().face = Mesh_connectivity::hole_index;
+			if (!twin_face.is_equal(mesh().hole())) {
+				std::vector<Mesh_connectivity::Half_edge_iterator> twin_left_face_half_edges;
+				std::vector<Mesh_connectivity::Half_edge_iterator> twin_right_face_half_edges;
+				break_face(
+						twin_face,
+						twin_he,
+						new_vertex,
+						twin_right_face_half_edges,
+						twin_left_face_half_edges);
+				link_twins(left_face_half_edges[1], twin_right_face_half_edges[1]);
+				link_twins(right_face_half_edges[1], twin_left_face_half_edges[1]);
 			} else {
-				
+				Mesh_connectivity::Half_edge_iterator new_boundary_half_edge = mesh().add_half_edge(false);
+				Mesh_connectivity::Half_edge_iterator next_he = twin_he.next();
+
+				new_boundary_half_edge.data().prev = twin_he.index();
+				twin_he.data().next = new_boundary_half_edge.index();
+				new_boundary_half_edge.data().next = next_he.index();
+				next_he.data().prev = new_boundary_half_edge.index();
+
+				new_boundary_half_edge.data().origin = new_vertex.index();
+
+				new_boundary_half_edge.data().face = Mesh_connectivity::hole_index;
+
+				link_twins(new_boundary_half_edge, left_face_half_edges[1]);
+				link_twins(twin_he, right_face_half_edges[1]);
 			}
+		}
+
+		void Mesh_modifier::break_face(Mesh_connectivity::Face_iterator old_face,
+				Mesh_connectivity::Half_edge_iterator old_half_edge,
+				Mesh_connectivity::Vertex_iterator new_vertex,
+				std::vector<Mesh_connectivity::Half_edge_iterator> & right_face_half_edges,
+				std::vector<Mesh_connectivity::Half_edge_iterator> & left_face_half_edges)
+		{
+			// Old triangle data
+			std::vector<Mesh_connectivity::Half_edge_iterator> old_half_edge_connection = {
+				old_half_edge.prev(),
+				old_half_edge,
+				old_half_edge.next()
+			};
+
+			// New face on the right
+			Mesh_connectivity::Face_iterator new_face = mesh().add_face(false);
+			old_half_edge_connection[2].data().face = new_face.index();
+			new_face.data().half_edge = old_half_edge_connection[2].index();
+
+			// Right face half edges and connection
+			right_face_half_edges.push_back(mesh().add_half_edge(false));
+			right_face_half_edges.push_back(mesh().add_half_edge(false));
+			right_face_half_edges.push_back(old_half_edge_connection[2]);
+			connect_face_half_edges(right_face_half_edges);
+			link_face_to_half_edges(right_face_half_edges, new_face);
+			right_face_half_edges[0].data().origin = old_half_edge_connection[0].origin().index();
+			right_face_half_edges[1].data().origin = new_vertex.index();
+
+			// Left face (old) half edges and connection
+			left_face_half_edges.push_back(old_half_edge_connection[0]);
+			left_face_half_edges.push_back(old_half_edge);
+			left_face_half_edges.push_back(mesh().add_half_edge(false));
+			connect_face_half_edges(left_face_half_edges);
+			link_face_to_half_edges(left_face_half_edges, old_face);
+			left_face_half_edges[2].data().origin = new_vertex.index();
+
+			// New vertex
+			new_vertex.data().half_edge = right_face_half_edges[1].index();
+
+			// Twins for middle edges
+			link_twins(right_face_half_edges[0], left_face_half_edges[2]);
+
+			// Left face
+			old_face.data().half_edge = old_half_edge_connection[0].index();
 		}
 
 		void Mesh_modifier::collapse_short_edge(double min_target_length)
@@ -1258,6 +1323,33 @@ namespace minimesh
 		void Mesh_modifier::project_vertices()
 		{
 
+		}
+
+		void Mesh_modifier::connect_face_half_edges(std::vector<Mesh_connectivity::Half_edge_iterator> & half_edges)
+		{
+			for (int i=0; i<half_edges.size(); ++i)
+			{
+				int j = (i + 1) % 3;
+				half_edges[i].data().next = half_edges[j].index();
+				half_edges[j].data().prev = half_edges[i].index();
+			}
+		}
+
+		void Mesh_modifier::link_face_to_half_edges(std::vector<Mesh_connectivity::Half_edge_iterator> & half_edges,
+				Mesh_connectivity::Face_iterator face)
+		{
+			for (auto & half_edge : half_edges)
+			{
+				half_edge.data().face = face.index();
+			}
+		}
+
+		void Mesh_modifier::link_twins(
+				Mesh_connectivity::Half_edge_iterator he1,
+				Mesh_connectivity::Half_edge_iterator he2)
+		{
+			he1.data().twin = he2.index();
+			he2.data().twin = he1.index();
 		}
 
 	} // end of mohe

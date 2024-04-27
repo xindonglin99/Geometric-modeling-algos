@@ -34,6 +34,16 @@ namespace minimesh
 				return _m;
 			}
 
+			// Get the underlying remeshed mesh
+//			Mesh_connectivity& original_mesh()
+//			{
+//				return _m_original;
+//			}
+//			const Mesh_connectivity& original_mesh() const
+//			{
+//				return _m_original;
+//			}
+
 			//
 			// Given two vertices, this function return the index of the half-edge going from v0 to v1.
 			// Returns mesh::invalid_index if no half-edge exists between the two vertices.
@@ -86,6 +96,7 @@ namespace minimesh
 		private:
 			// pointer to the mesh that we are working on.
 			Mesh_connectivity& _m;
+//			Mesh_connectivity& _m_original;
 
 			int _anchor_id = -1;
 			int _deform_id = -1;
@@ -184,7 +195,27 @@ namespace minimesh
 			void project_vertices();
 
 			// Break edge in the mid-point given a half-edge
-			Mesh_connectivity::Half_edge_iterator break_half_edge(int id);
+			void break_half_edge(int id);
+
+			// Break face
+			void break_face(
+					Mesh_connectivity::Face_iterator old_face,
+					Mesh_connectivity::Half_edge_iterator old_half_edge,
+					Mesh_connectivity::Vertex_iterator new_vertex,
+					std::vector<Mesh_connectivity::Half_edge_iterator> & right_face_half_edges,
+					std::vector<Mesh_connectivity::Half_edge_iterator> & left_face_half_edges
+					);
+
+			// Helper for connecting the half edges in a triangle (face)
+			static void connect_face_half_edges(std::vector<Mesh_connectivity::Half_edge_iterator> & half_edges);
+
+			// Helper function for linking the faces
+			static void link_face_to_half_edges(
+					std::vector<Mesh_connectivity::Half_edge_iterator> & half_edges,
+					Mesh_connectivity::Face_iterator face);
+
+			// Helper function for linking twins
+			static void link_twins(Mesh_connectivity::Half_edge_iterator he1, Mesh_connectivity::Half_edge_iterator he2);
 		};
 	} // end of mohe
 } // end of minimesh
