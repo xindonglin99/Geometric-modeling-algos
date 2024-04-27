@@ -254,14 +254,14 @@ namespace minimesh
 			}
 		}
 
-		void Mesh_modifier::connect_with_neighbours(
+		void Mesh_modifier::collapse_one_edge(
 				Mesh_connectivity& temp_mesh,
 				Eigen::Vector3d new_v_xyz,
 				int v1_index,
 				int v2_index
 		)
 		{
-			temp_mesh.vertex_at(v1_index).data().xyz = new_v_xyz;
+			temp_mesh.vertex_at(v1_index).data().xyz = std::move(new_v_xyz);
 			Mesh_connectivity::Vertex_ring_iterator v2 = temp_mesh.vertex_ring_at(v2_index);
 			Mesh_connectivity::Vertex_ring_iterator v2_rest = temp_mesh.vertex_ring_at(v2_index);
 			int he_at_v1_v2_ind = -10;
@@ -458,14 +458,14 @@ namespace minimesh
 				auto result = generate_coords_traingles(v1_ring, v2_ring);
 				temp_mesh.build_from_triangles(std::get<0>(result), std::get<1>(result));
 
-				connect_with_neighbours(temp_mesh, to_pop.v, std::get<2>(result)[v1.index()],
+				collapse_one_edge(temp_mesh, to_pop.v, std::get<2>(result)[v1.index()],
 						std::get<2>(result)[v2.index()]);
 				if (!temp_mesh.check_sanity_slowly(true))
 				{
 					printf("Current edge to collapse creates invalid topology. Skipping..");
 					continue;
 				}
-				connect_with_neighbours(mesh(), to_pop.v, v1.index(), v2.index());
+				collapse_one_edge(mesh(), to_pop.v, v1.index(), v2.index());
 				this->update_Qs(v1);
 				this->update_errors(v1);
 				k--;
@@ -1166,7 +1166,7 @@ namespace minimesh
 			target_length /= mesh().n_total_half_edges();
 
 			// Choose target length
-			target_length *= 0.98;
+			target_length *= 0.9;
 
 			double min_target_length = 4.0 / 5.0 * target_length;
 			double max_target_length = 4.0 / 3.0 * target_length;
@@ -1176,8 +1176,8 @@ namespace minimesh
 			for (int i=0; i<num_itr; ++i)
 			{
 				split_long_edge(max_target_length);
-//				collapse_short_edge(min_target_length);
-//				flip_edges();
+				collapse_short_edge(min_target_length, max_target_length);
+				flip_edges();
 //				shift_vertices();
 //				project_vertices();
 			}
@@ -1192,24 +1192,18 @@ namespace minimesh
 			{
 				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
 
-				int const start_id = curr_face.half_edge().index();
-				int curr_id = start_id;
-				std::vector<int> break_list;
+				std::vector<Mesh_connectivity::Half_edge_iterator> face_edges = {
+						curr_face.half_edge().prev(),
+						curr_face.half_edge(),
+						curr_face.half_edge().next()
+				};
 
-				do {
-					Mesh_connectivity::Half_edge_iterator curr_he = mesh().half_edge_at(curr_id);
+				for (auto & curr_he: face_edges) {
 					double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
-
 					if (length > max_target_length)
 					{
-						break_list.push_back(curr_id);
+						break_half_edge(curr_he.index());
 					}
-					curr_id = curr_he.next().index();
-				} while (curr_id != start_id);
-
-				for (auto & he: break_list)
-				{
-					break_half_edge(he);
 				}
 			}
 		}
@@ -1308,13 +1302,88 @@ namespace minimesh
 			old_face.data().half_edge = old_half_edge_connection[0].index();
 		}
 
-		void Mesh_modifier::collapse_short_edge(double min_target_length)
+		void Mesh_modifier::collapse_short_edge(double min_target_length, double max_target_length)
 		{
+			int N = mesh().n_total_faces();
+			for (int i = 0; i < N; ++i )
+			{
+				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
 
+				// If face gone, don't collapse
+				if (!curr_face.is_active()) continue;
+
+				std::vector<Mesh_connectivity::Half_edge_iterator> face_half_edges = {
+						curr_face.half_edge().prev(),
+						curr_face.half_edge(),
+						curr_face.half_edge().next()
+				};
+
+//				// If boundary, don't collapse
+//				if (
+//						curr_he.next().twin().face().is_equal(mesh().hole()) ||
+//								curr_he.twin().face().is_equal(mesh().hole()) ||
+//								curr_he.prev().twin().face().is_equal(mesh().hole()) ||
+//								curr_he.twin().face().is_equal(mesh().hole()) ||
+//								curr_he.twin().prev().face().is_equal(mesh().hole()) ||
+//								curr_he.twin().next().face().is_equal(mesh().hole())
+//						) break;
+
+				for (auto & curr_he: face_half_edges)
+				{
+					// If half edge gone, don't collapse
+					if (!curr_he.is_active()) continue;
+					double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
+
+					if (length < min_target_length)
+					{
+						Eigen::Vector3d mid_point = 0.5 * (curr_he.origin().xyz() + curr_he.dest().xyz());
+						if (check_max_length_after_collapse(curr_he, mid_point,
+								max_target_length))
+						{
+							// v1 will keep, v2 will deactivate
+							Mesh_connectivity::Vertex_iterator v1 = curr_he.origin();
+							Mesh_connectivity::Vertex_iterator v2 = curr_he.dest();
+
+							Mesh_connectivity::Vertex_ring_iterator v1_ring = mesh().vertex_ring_at(v1.index());
+							Mesh_connectivity::Vertex_ring_iterator v2_ring = mesh().vertex_ring_at(v2.index());
+
+							Mesh_connectivity temp_mesh;
+							auto result = generate_coords_traingles(v1_ring, v2_ring);
+							temp_mesh.build_from_triangles(std::get<0>(result), std::get<1>(result));
+
+							collapse_one_edge(temp_mesh, mid_point, std::get<2>(result)[v1.index()],
+									std::get<2>(result)[v2.index()]);
+							if (!temp_mesh.check_sanity_slowly(true))
+							{
+								printf("Current edge to collapse creates invalid topology. Skipping..");
+								continue;
+							}
+							collapse_one_edge(mesh(), mid_point, v1.index(), v2.index());
+							break;
+						}
+
+					}
+				}
+			}
 		}
+
 		void Mesh_modifier::flip_edges()
 		{
+			int N = mesh().n_total_faces();
+			for (int i = 0; i < N; ++i )
+			{
+				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
 
+				std::vector<Mesh_connectivity::Half_edge_iterator> face_edges = {
+						curr_face.half_edge().prev(),
+						curr_face.half_edge(),
+						curr_face.half_edge().next()
+				};
+
+				for (auto & curr_he: face_edges) {
+
+				}
+			}
 		}
 		void Mesh_modifier::shift_vertices()
 		{
@@ -1350,6 +1419,29 @@ namespace minimesh
 		{
 			he1.data().twin = he2.index();
 			he2.data().twin = he1.index();
+		}
+
+		bool Mesh_modifier::check_max_length_after_collapse(
+				Mesh_connectivity::Half_edge_iterator half_edge_to_collapse,
+				const Eigen::Vector3d& new_vertex,
+				double max_length)
+		{
+			Mesh_connectivity::Vertex_ring_iterator left_ring =
+					mesh().vertex_ring_at(half_edge_to_collapse.origin().index());
+			Mesh_connectivity::Vertex_ring_iterator right_ring =
+					mesh().vertex_ring_at(half_edge_to_collapse.dest().index());
+
+			do {
+				if ((left_ring.half_edge().origin().xyz() - new_vertex).norm() > max_length)
+					return false;
+			} while (left_ring.advance());
+
+			do {
+				if ((right_ring.half_edge().origin().xyz() - new_vertex).norm() > max_length)
+					return false;
+			} while (left_ring.advance());
+
+			return true;
 		}
 
 	} // end of mohe

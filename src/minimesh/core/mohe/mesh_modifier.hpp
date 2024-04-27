@@ -153,7 +153,7 @@ namespace minimesh
 			void update_errors(Mesh_connectivity::Vertex_iterator new_v);
 
 			// Connect the new vertex to its neighbours
-			static void connect_with_neighbours(
+			static void collapse_one_edge(
 					Mesh_connectivity& temp_mesh,
 					Eigen::Vector3d new_v_xyz,
 					int v1_index,
@@ -183,7 +183,7 @@ namespace minimesh
 			void split_long_edge(double max_target_length);
 
 			// Remeshing step 2: collapse short edge
-			void collapse_short_edge(double min_target_length);
+			void collapse_short_edge(double min_target_length, double max_target_length);
 
 			// Remeshing step 3: flip edges
 			void flip_edges();
@@ -216,6 +216,12 @@ namespace minimesh
 
 			// Helper function for linking twins
 			static void link_twins(Mesh_connectivity::Half_edge_iterator he1, Mesh_connectivity::Half_edge_iterator he2);
+
+			// Check if the edges are too long after collapse
+			bool check_max_length_after_collapse(
+					Mesh_connectivity::Half_edge_iterator half_edge_to_collapse,
+					const Eigen::Vector3d& new_vertex,
+					double max_length);
 		};
 	} // end of mohe
 } // end of minimesh
