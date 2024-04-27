@@ -1156,7 +1156,7 @@ namespace minimesh
 
 		void Mesh_modifier::remesh()
 		{
-			int num_itr = 1;
+			int num_itr = 4;
 			double target_length = 0.0;
 			for (int i=0; i<mesh().n_total_half_edges();++i)
 			{
@@ -1166,7 +1166,7 @@ namespace minimesh
 			target_length /= mesh().n_total_half_edges();
 
 			// Choose target length
-			target_length *= 0.9;
+			target_length *= 0.98;
 
 			double min_target_length = 4.0 / 5.0 * target_length;
 			double max_target_length = 4.0 / 3.0 * target_length;
@@ -1191,6 +1191,7 @@ namespace minimesh
 			for (int i = 0; i < N; ++i )
 			{
 				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
+				if (!curr_face.is_active()) continue;
 
 				std::vector<Mesh_connectivity::Half_edge_iterator> face_edges = {
 						curr_face.half_edge().prev(),
@@ -1318,25 +1319,20 @@ namespace minimesh
 						curr_face.half_edge().next()
 				};
 
-//				// If boundary, don't collapse
-//				if (
-//						curr_he.next().twin().face().is_equal(mesh().hole()) ||
-//								curr_he.twin().face().is_equal(mesh().hole()) ||
-//								curr_he.prev().twin().face().is_equal(mesh().hole()) ||
-//								curr_he.twin().face().is_equal(mesh().hole()) ||
-//								curr_he.twin().prev().face().is_equal(mesh().hole()) ||
-//								curr_he.twin().next().face().is_equal(mesh().hole())
-//						) break;
 
 				for (auto & curr_he: face_half_edges)
 				{
-					// If half edge gone, don't collapse
 					if (!curr_he.is_active()) continue;
+					// If boundary, don't collapse
+					Mesh_connectivity::Vertex_ring_iterator ring_1 = mesh().vertex_ring_at(curr_he.origin().index());
+					Mesh_connectivity::Vertex_ring_iterator ring_2 = mesh().vertex_ring_at(curr_he.dest().index());
+					if (ring_1.reset_boundary() || ring_2.reset_boundary()) break;
 					double length = (curr_he.origin().xyz() - curr_he.dest().xyz()).norm();
-
 					if (length < min_target_length)
 					{
+
 						Eigen::Vector3d mid_point = 0.5 * (curr_he.origin().xyz() + curr_he.dest().xyz());
+
 						if (check_max_length_after_collapse(curr_he, mid_point,
 								max_target_length))
 						{
@@ -1348,9 +1344,9 @@ namespace minimesh
 							Mesh_connectivity::Vertex_ring_iterator v2_ring = mesh().vertex_ring_at(v2.index());
 
 							Mesh_connectivity temp_mesh;
+
 							auto result = generate_coords_traingles(v1_ring, v2_ring);
 							temp_mesh.build_from_triangles(std::get<0>(result), std::get<1>(result));
-
 							collapse_one_edge(temp_mesh, mid_point, std::get<2>(result)[v1.index()],
 									std::get<2>(result)[v2.index()]);
 							if (!temp_mesh.check_sanity_slowly(true))
@@ -1373,6 +1369,7 @@ namespace minimesh
 			for (int i = 0; i < N; ++i )
 			{
 				Mesh_connectivity::Face_iterator curr_face = mesh().face_at(i);
+				if (!curr_face.is_active()) continue;
 
 				std::vector<Mesh_connectivity::Half_edge_iterator> face_edges = {
 						curr_face.half_edge().prev(),
@@ -1380,11 +1377,16 @@ namespace minimesh
 						curr_face.half_edge().next()
 				};
 
-				for (auto & curr_he: face_edges) {
-
+				for (auto & curr_he: face_edges)
+				{
+					if (!curr_he.twin().face().is_equal(mesh().hole()))
+					{
+						if (flip_edge_remeshing_wrapper(curr_he.index())) break;
+					}
 				}
 			}
 		}
+
 		void Mesh_modifier::shift_vertices()
 		{
 
@@ -1442,6 +1444,61 @@ namespace minimesh
 			} while (left_ring.advance());
 
 			return true;
+		}
+
+		bool Mesh_modifier::flip_edge_remeshing_wrapper(int id)
+		{
+			Mesh_connectivity::Half_edge_iterator half_edge = mesh().half_edge_at(id);
+			Mesh_connectivity::Vertex_iterator top_vertex = half_edge.prev().origin();
+			Mesh_connectivity::Vertex_iterator bot_vertex = half_edge.twin().prev().origin();
+			Mesh_connectivity::Vertex_iterator left_vertex = half_edge.origin();
+			Mesh_connectivity::Vertex_iterator right_vertex = half_edge.dest();
+
+			bool is_left_boundary = false;
+			int left_valence = vertex_valence(left_vertex, is_left_boundary);
+			if (left_valence <= 3)
+				return false;
+
+			bool is_right_boundary = false;
+			int right_valence = vertex_valence(right_vertex, is_right_boundary);
+			if (right_valence <= 3)
+				return false;
+
+			bool is_top_boundary = false;
+			int top_valence = vertex_valence(top_vertex, is_top_boundary);
+
+			bool is_bot_boundary = false;
+			int bot_valence = vertex_valence(bot_vertex, is_bot_boundary);
+
+			auto deviation = [](int valence, bool isBoundary) {
+				return std::pow(valence - (isBoundary ? 4 : 6), 2);
+			};
+
+			double old_deviation = deviation(top_valence, is_top_boundary) +
+					deviation(bot_valence, is_bot_boundary) +
+					deviation(left_valence, is_left_boundary) +
+					deviation(right_valence, is_right_boundary);
+
+			double new_deviation = deviation(top_valence + 1, is_top_boundary) +
+					deviation(bot_valence + 1, is_bot_boundary) +
+					deviation(left_valence - 1, is_left_boundary) +
+					deviation(right_valence - 1, is_right_boundary);
+
+			if (new_deviation >= old_deviation)
+				return false;
+
+			return flip_edge(id);;
+		}
+
+		int Mesh_modifier::vertex_valence(Mesh_connectivity::Vertex_iterator vertex, bool& is_boundary)
+		{
+			Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(vertex.index());
+			is_boundary = ring.reset_boundary();
+			int count = 0;
+			do {
+				count++;
+			} while (ring.advance());
+			return count;
 		}
 
 	} // end of mohe

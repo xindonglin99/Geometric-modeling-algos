@@ -222,6 +222,12 @@ namespace minimesh
 					Mesh_connectivity::Half_edge_iterator half_edge_to_collapse,
 					const Eigen::Vector3d& new_vertex,
 					double max_length);
+
+			// Helper for flip edge
+			bool flip_edge_remeshing_wrapper(int id);
+
+			// Find valence
+			int vertex_valence(Mesh_connectivity::Vertex_iterator vertex, bool & is_boundary);
 		};
 	} // end of mohe
 } // end of minimesh
