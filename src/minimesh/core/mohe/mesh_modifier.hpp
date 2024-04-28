@@ -228,6 +228,13 @@ namespace minimesh
 
 			// Find valence
 			int vertex_valence(Mesh_connectivity::Vertex_iterator vertex, bool & is_boundary);
+
+			// Compute face normals
+			void update_face_normals(std::vector<Eigen::Vector3d> & face_normals);
+
+			// Compute vertex normals based on triangle areas
+			void update_vertex_normals(std::vector<Eigen::Vector3d>& vertex_normals,
+					std::vector<Eigen::Vector3d>& face_normals);
 		};
 	} // end of mohe
 } // end of minimesh

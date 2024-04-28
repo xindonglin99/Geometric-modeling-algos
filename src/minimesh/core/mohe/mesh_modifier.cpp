@@ -1171,15 +1171,12 @@ namespace minimesh
 			double min_target_length = 4.0 / 5.0 * target_length;
 			double max_target_length = 4.0 / 3.0 * target_length;
 
-			std::vector<Eigen::Vector3d> normals(mesh().n_total_faces());
-
 			for (int i=0; i<num_itr; ++i)
 			{
 				split_long_edge(max_target_length);
 				collapse_short_edge(min_target_length, max_target_length);
 				flip_edges();
 				shift_vertices();
-//				project_vertices();
 			}
 
 			force_assert(mesh().check_sanity_slowly());
@@ -1389,12 +1386,36 @@ namespace minimesh
 
 		void Mesh_modifier::shift_vertices()
 		{
+			std::vector<Eigen::Vector3d> face_normals(mesh().n_total_faces());
+			std::vector<Eigen::Vector3d> vertex_normals(mesh().n_total_vertices());
 
-		}
+			update_face_normals(face_normals);
+			update_vertex_normals(vertex_normals, face_normals);
 
-		void Mesh_modifier::project_vertices()
-		{
+			for (int i=0; i < mesh().n_total_vertices(); ++i)
+			{
+				if (!mesh().vertex_at(i).is_active())
+					continue;
 
+				Mesh_connectivity::Vertex_ring_iterator ring = mesh().vertex_ring_at(i);
+
+				if (ring.reset_boundary())
+					continue;
+
+				int count = 0;
+				Eigen::Vector3d c(0.0, 0.0, 0.0);
+
+				do {
+					c += ring.half_edge().origin().xyz();
+					count++;
+				} while (ring.advance());
+
+				c /= count;
+
+				Eigen::Vector3d pos_plane = mesh().vertex_at(i).xyz();
+				double project_distance = vertex_normals[i].dot(c - pos_plane);
+				mesh().vertex_at(i).data().xyz = c - project_distance * vertex_normals[i];
+			}
 		}
 
 		void Mesh_modifier::connect_face_half_edges(std::vector<Mesh_connectivity::Half_edge_iterator> & half_edges)
@@ -1500,6 +1521,58 @@ namespace minimesh
 				count++;
 			} while (ring.advance());
 			return count;
+		}
+
+		void Mesh_modifier::update_face_normals(std::vector<Eigen::Vector3d>& face_normals)
+		{
+			force_assert(face_normals.size() == mesh().n_total_faces() && "Face vector size incorrect!!");
+
+			for (int i=0; i < mesh().n_total_faces(); ++i)
+			{
+				if (!mesh().face_at(i).is_active())
+					face_normals[i] = Eigen::Vector3d::Zero();
+
+				Mesh_connectivity::Vertex_iterator v1 = mesh().face_at(i).half_edge().origin();
+				Mesh_connectivity::Vertex_iterator v2 = mesh().face_at(i).half_edge().dest();
+				Mesh_connectivity::Vertex_iterator v3 = mesh().face_at(i).half_edge().next().dest();
+
+				Eigen::Vector3d v1v2 = v2.xyz() - v1.xyz();
+				Eigen::Vector3d v1v3 = v3.xyz() - v1.xyz();
+
+				Eigen::Vector3d normal = v1v2.cross(v1v3);
+
+				face_normals[i] = normal;
+			}
+		}
+
+		void Mesh_modifier::update_vertex_normals(std::vector<Eigen::Vector3d>& vertex_normals,
+				std::vector<Eigen::Vector3d>& face_normals)
+		{
+			force_assert(vertex_normals.size() == mesh().n_total_vertices() && "Vertex vector size incorrect!!");
+
+			for (auto & v_normal: vertex_normals)
+			{
+				v_normal = Eigen::Vector3d::Zero();
+			}
+
+			for (int i=0; i<mesh().n_total_faces(); ++i)
+			{
+				if (!mesh().face_at(i).is_active())
+					continue;
+
+				int v1_ind = mesh().face_at(i).half_edge().origin().index();
+				int v2_ind = mesh().face_at(i).half_edge().dest().index();
+				int v3_ind = mesh().face_at(i).half_edge().next().dest().index();
+
+				vertex_normals[v1_ind] += 0.5 * face_normals[i];
+				vertex_normals[v2_ind] += 0.5 * face_normals[i];
+				vertex_normals[v3_ind] += 0.5 * face_normals[i];
+			}
+
+			for (auto & v_normal: vertex_normals)
+			{
+				v_normal.normalize();
+			}
 		}
 
 	} // end of mohe
