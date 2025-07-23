@@ -1,3 +1,15 @@
+# Algorithms
+This project is built on the tool Minimesh (details below) and course CPSC524 with Prof. Alla Sheffer. If you are a student in this course, please don't use it, since it'll be considered academic misconduct. 
+
+The content table is below: 
+
+- A1: Loop Subdivision
+- A2: Edge-collapse simplification
+- A3: Fixed-boundary mesh parametrization (conformal) + Boundary-free mesh parametrization (LSCM)
+- A4: ARAP mesh deformation
+- Extra part: Explicit surface remeshing 
+
+
 # minimesh  
 
 <div style="text-align:center"><img src="imgs/minimesh.png" width="500"></img></div>
